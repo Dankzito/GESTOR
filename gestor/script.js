@@ -275,7 +275,6 @@ class NavigationManager {
         });
     }
 
-    // Contenido del modal de perfil
     getUserProfileModal() {
         return `
             <h2>Perfil de Usuario</h2>
