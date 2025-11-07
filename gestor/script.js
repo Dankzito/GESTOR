@@ -1,16 +1,16 @@
 // Configuración global
 const CONFIG = {
     modules: {
-        pañol: 'modulo_panol.php',
+        panol: 'modulo_panol.php',
         alumnos: 'modulo_alumnos.php',
         biblioteca: 'modulo_biblioteca.php',
         directivos: 'modulo_directivos.php'
     },
     pages: {
-        pañol: 'panol.php',
-        estudiantes: 'estudiantes.php',
+        panol: 'modulo_panol.php',
+        estudiantes: 'modulo_alumnos.php',
         tutores: 'tutores.php',
-        biblioteca: 'biblioteca.php'
+        biblioteca: 'modulo_biblioteca.php'
     },
     urls: {
         config: 'configuracion.php',
@@ -31,7 +31,6 @@ class NavigationManager {
         this.setupSidebarNavigation();
         this.setupUserControls();
         this.setupMenuToggle();
-        this.loadUserData();
     }
 
     // Navegación de módulos principales
@@ -44,7 +43,6 @@ class NavigationManager {
                 this.navigateToModule(module);
             });
 
-            // Efecto visual mejorado
             card.addEventListener('mouseenter', () => {
                 this.animateModuleCard(card, true);
             });
@@ -66,13 +64,11 @@ class NavigationManager {
         this.currentModule = module;
         console.log(`Navegando al módulo: ${module}`);
         
-        // Mostrar loading
         this.showLoading();
         
-        // Simular carga y navegar
         setTimeout(() => {
             window.location.href = CONFIG.modules[module];
-        }, 500);
+        }, 300);
     }
 
     // Navegación del sidebar
@@ -85,7 +81,6 @@ class NavigationManager {
                 this.navigateToPage(page);
             });
 
-            // Efecto de hover mejorado
             item.addEventListener('mouseenter', () => {
                 this.highlightNavItem(item);
             });
@@ -107,7 +102,7 @@ class NavigationManager {
         }, 300);
     }
 
-    // Controles de usuario (configuración y perfil)
+    // Controles de usuario
     setupUserControls() {
         const configIcon = document.querySelector('.config-icon');
         const userIcon = document.querySelector('.user-icon');
@@ -128,11 +123,7 @@ class NavigationManager {
     // Abrir configuración
     openConfiguration() {
         console.log('Abriendo configuración del sistema');
-        this.showLoading();
-        
-        setTimeout(() => {
-            window.location.href = CONFIG.urls.config;
-        }, 300);
+        alert('Módulo de configuración en desarrollo');
     }
 
     // Abrir perfil de usuario
@@ -185,21 +176,6 @@ class NavigationManager {
         const allItems = document.querySelectorAll('.nav-item');
         allItems.forEach(i => i.classList.remove('active'));
         item.classList.add('active');
-    }
-
-    // Cargar datos del usuario
-    loadUserData() {
-        // Simular carga de datos del usuario
-        const welcomeText = document.querySelector('.welcome p');
-        
-        // Aquí podrías hacer una petición AJAX para obtener el nombre real
-        // fetch('api/usuario.php')
-        //     .then(response => response.json())
-        //     .then(data => {
-        //         welcomeText.textContent = `Hola, ${data.nombre}!`;
-        //     });
-        
-        console.log('Datos de usuario cargados');
     }
 
     // Mostrar loading overlay
@@ -263,7 +239,6 @@ class NavigationManager {
         
         document.body.appendChild(modal);
         
-        // Cerrar modal
         modal.querySelector('.modal-close').addEventListener('click', () => {
             modal.remove();
         });
@@ -279,9 +254,7 @@ class NavigationManager {
         return `
             <h2>Perfil de Usuario</h2>
             <div class="profile-info">
-                <p><strong>Nombre:</strong> Usuario Administrador</p>
-                <p><strong>Email:</strong> admin@escuela.edu</p>
-                <p><strong>Rol:</strong> Administrador</p>
+                <p><strong>Sesión activa</strong></p>
                 <button class="btn-logout" onclick="navigationManager.logout()">Cerrar Sesión</button>
             </div>
         `;
@@ -300,53 +273,13 @@ class NavigationManager {
     }
 }
 
-// Clase para manejar estadísticas y analytics
-class AnalyticsManager {
-    constructor() {
-        this.pageLoadTime = Date.now();
-        this.init();
-    }
-
-    init() {
-        this.trackPageLoad();
-        this.setupEventTracking();
-    }
-
-    trackPageLoad() {
-        window.addEventListener('load', () => {
-            const loadTime = Date.now() - this.pageLoadTime;
-            console.log(`Página cargada en ${loadTime}ms`);
-        });
-    }
-
-    setupEventTracking() {
-        // Trackear clics en módulos
-        document.querySelectorAll('.module-card').forEach(card => {
-            card.addEventListener('click', () => {
-                const module = card.getAttribute('data-module');
-                this.trackEvent('module_click', module);
-            });
-        });
-    }
-
-    trackEvent(eventName, eventData) {
-        console.log(`Evento: ${eventName}`, eventData);
-        // Aquí podrías enviar datos a Google Analytics o tu sistema de analytics
-    }
-}
-
 // Inicializar cuando el DOM esté listo
 let navigationManager;
-let analyticsManager;
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Sistema administrativo iniciado');
     
-    // Inicializar managers
     navigationManager = new NavigationManager();
-    analyticsManager = new AnalyticsManager();
-    
-    // Agregar estilos dinámicos para componentes JS
     addDynamicStyles();
     
     console.log('Todos los sistemas operativos');
@@ -491,14 +424,6 @@ function addDynamicStyles() {
     document.head.insertAdjacentHTML('beforeend', styles);
 }
 
-// Manejo de errores global
 window.addEventListener('error', function(e) {
     console.error('Error capturado:', e.message);
-});
-
-// Prevenir cierre accidental
-window.addEventListener('beforeunload', function(e) {
-    // Descomentar si quieres advertencia al salir
-    // e.preventDefault();
-    // e.returnValue = '';
 });
