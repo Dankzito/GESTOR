@@ -82,7 +82,7 @@ class NavigationManager {
         navItems.forEach(item => {
             item.addEventListener('click', () => {
                 const page = item.getAttribute('data-page');
-                this.navigateToPage(page);
+                window.location.href = page;
             });
 
             // Efecto de hover mejorado
@@ -90,21 +90,6 @@ class NavigationManager {
                 this.highlightNavItem(item);
             });
         });
-    }
-
-    // Navegar a una página del sidebar
-    navigateToPage(page) {
-        if (!CONFIG.pages[page]) {
-            console.error(`Página ${page} no encontrada`);
-            return;
-        }
-
-        console.log(`Navegando a: ${page}`);
-        this.showLoading();
-        
-        setTimeout(() => {
-            window.location.href = CONFIG.pages[page];
-        }, 300);
     }
 
     // Controles de usuario (configuración y perfil)
@@ -350,6 +335,24 @@ document.addEventListener('DOMContentLoaded', function() {
     addDynamicStyles();
     
     console.log('Todos los sistemas operativos');
+
+    // Navegación del sidebar
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const module = this.getAttribute('data-page');
+            window.location.href = `/${module}`;
+        });
+    });
+
+    // Navegación de las tarjetas de módulos
+    document.querySelectorAll('.module-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            const module = this.getAttribute('data-module');
+            window.location.href = `/${module}`;
+        });
+    });
 });
 
 // Agregar estilos para componentes dinámicos

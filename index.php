@@ -1,0 +1,81 @@
+<?php
+require_once 'config/database.php';
+// Initialize session if needed
+session_start();
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio - Panel Administrativo</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="menu-icon">☰</div>
+        
+        <nav class="nav-items">
+            <div class="nav-item" data-page="pañol">P</div>
+            <div class="nav-item" data-page="estudiantes">E</div>
+            <div class="nav-item" data-page="tutores">T</div>
+            <div class="nav-item" data-page="biblioteca">B</div>
+        </nav>
+
+        <div class="settings-icons">
+            <div class="settings-icon user-icon">👤</div>
+            <div class="settings-icon config-icon">⚙</div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="header">
+            <h1>Inicio</h1>
+        </header>
+
+        <div class="welcome">
+            <p>¡Bienvenido<?php echo isset($_SESSION['username']) ? ', ' . htmlspecialchars($_SESSION['username']) : '!'; ?></p>
+        </div>
+
+        <section class="modules-section">
+            <h2 class="section-title">Modulos</h2>
+            
+            <div class="modules-grid">
+                <div class="module-card" data-module="pañol">
+                    <span class="module-label">Modulo del pañol</span>
+                    <div class="module-content">
+                        <h3>Pañol</h3>
+                    </div>
+                    <div class="module-status">👁</div>
+                </div>
+
+                <div class="module-card" data-module="alumnos">
+                    <span class="module-label">Modulos de alumnos</span>
+                    <div class="module-content">
+                        <h3>Gestión de alumnos</h3>
+                    </div>
+                    <div class="module-status">👁</div>
+                </div>
+
+                <div class="module-card" data-module="biblioteca">
+                    <span class="module-label">Modulo de biblioteca</span>
+                    <div class="module-content">
+                        <h3>Biblioteca</h3>
+                    </div>
+                    <div class="module-status">👁</div>
+                </div>
+
+                <div class="module-card" data-module="directivos">
+                    <span class="module-label">Modulo de directivos</span>
+                    <div class="module-content">
+                        <h3>Directivos</h3>
+                    </div>
+                    <div class="module-status">👁</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
