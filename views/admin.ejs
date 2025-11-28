@@ -25,6 +25,9 @@
                         <span class="badge role-<%= u.role %>">
                             <%= u.role %>
                         </span>
+                        <% if (u.role === 'profesor' && u.materia_nombre) { %>
+                            <br><small style="color: #7f8c8d; font-size: 0.75rem;">Materia: <%= u.materia_nombre %></small>
+                        <% } %>
                     </td>
                     <td>
                         <% if (u.role==='profesor' ) { %>

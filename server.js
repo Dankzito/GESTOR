@@ -71,19 +71,45 @@ app.get('/logout', (req, res) => {
 });
 
 // Register (Optional, keep for admin usage or setup)
-app.get('/register', (req, res) => res.render('register', { error: null }));
+app.get('/register', async (req, res) => {
+  try {
+    const [materias] = await pool.query('SELECT * FROM materias ORDER BY nombre ASC').catch(() => [[]]);
+    res.render('register', { error: null, materias: materias || [] });
+  } catch (err) {
+    // Si la tabla no existe, pasar array vacío
+    res.render('register', { error: null, materias: [] });
+  }
+});
+
 app.post('/register', async (req, res) => {
-  const { nombre, email, password, role } = req.body;
+  const { nombre, email, password, role, materiaId } = req.body;
   const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
-  if (existing.length) return res.render('register', { error: 'Email ya registrado' });
+  if (existing.length) {
+    const [materias] = await pool.query('SELECT * FROM materias ORDER BY nombre ASC').catch(() => [[]]);
+    return res.render('register', { error: 'Email ya registrado', materias: materias || [] });
+  }
   const hashed = await bcrypt.hash(password, 10);
   const id = crypto.randomUUID();
 
   // Profesores no validados por defecto, alumnos y admin validados
   const validated = (role === 'profesor') ? false : true;
 
-  await pool.query('INSERT INTO users (id,nombre,email,password,role,validated) VALUES (?,?,?,?,?,?)',
-    [id, nombre, email, hashed, role || 'alumno', validated]);
+  // Si es profesor y tiene materiaId, guardarlo; si no, dejar NULL
+  const finalMateriaId = (role === 'profesor' && materiaId) ? materiaId : null;
+
+  // Verificar si la columna materiaId existe, si no, insertar sin ella
+  try {
+    await pool.query('INSERT INTO users (id,nombre,email,password,role,validated,materiaId) VALUES (?,?,?,?,?,?,?)',
+      [id, nombre, email, hashed, role || 'alumno', validated, finalMateriaId]);
+  } catch (err) {
+    // Si la columna no existe, insertar sin materiaId
+    if (err.code === 'ER_BAD_FIELD_ERROR') {
+      await pool.query('INSERT INTO users (id,nombre,email,password,role,validated) VALUES (?,?,?,?,?,?)',
+        [id, nombre, email, hashed, role || 'alumno', validated]);
+    } else {
+      throw err;
+    }
+  }
 
   // Auto login after register
   req.session.user = { id, nombre, role: role || 'alumno', email, validated };
@@ -93,8 +119,16 @@ app.post('/register', async (req, res) => {
 /* ---------- ADMIN PANEL ---------- */
 app.get('/admin', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
   try {
-    const [users] = await pool.query('SELECT * FROM users ORDER BY created_at DESC');
-    res.render('admin', { users });
+    const [users] = await pool.query(`
+      SELECT u.*, m.nombre as materia_nombre 
+      FROM users u 
+      LEFT JOIN materias m ON u.materiaId = m.id 
+      ORDER BY u.created_at DESC
+    `).catch(() => {
+      // Si la columna materiaId no existe, hacer consulta simple
+      return pool.query('SELECT * FROM users ORDER BY created_at DESC');
+    });
+    res.render('admin', { users: Array.isArray(users) ? users : users[0] || [] });
   } catch (err) {
     console.error(err);
     res.status(500).send('Error al cargar usuarios');
@@ -243,6 +277,54 @@ app.post('/estudiantes/:id/edit', ensureAuthenticated, ensureRole('admin'), asyn
   const { nombre, dni } = req.body;
   await pool.query('UPDATE estudiantes SET nombre = ?, dni = ? WHERE id = ?', [nombre, dni, req.params.id]);
   res.redirect('/estudiantes');
+});
+
+/* ---------- MATERIAS ---------- */
+app.get('/materias', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  try {
+    const [materias] = await pool.query('SELECT * FROM materias ORDER BY nombre ASC');
+    res.render('materias', { materias });
+  } catch (err) {
+    console.error('Error al obtener materias:', err);
+    // Si la tabla no existe, crear estructura básica
+    if (err.code === 'ER_NO_SUCH_TABLE') {
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS materias (
+            id VARCHAR(50) PRIMARY KEY,
+            nombre VARCHAR(200) NOT NULL,
+            descripcion TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        `);
+        res.render('materias', { materias: [] });
+      } catch (createErr) {
+        console.error('Error al crear tabla materias:', createErr);
+        res.status(500).send('Error al inicializar la tabla de materias. Por favor ejecuta: sql/add_materias.sql');
+      }
+    } else {
+      res.status(500).send('Error al cargar materias: ' + err.message);
+    }
+  }
+});
+
+app.post('/materias', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  const { nombre, descripcion } = req.body;
+  await pool.query('INSERT INTO materias (id, nombre, descripcion) VALUES (?, ?, ?)', 
+    [nanoid(), nombre, descripcion || null]);
+  res.redirect('/materias');
+});
+
+app.post('/materias/:id/edit', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  const { nombre, descripcion } = req.body;
+  await pool.query('UPDATE materias SET nombre = ?, descripcion = ? WHERE id = ?', 
+    [nombre, descripcion || null, req.params.id]);
+  res.redirect('/materias');
+});
+
+app.post('/materias/:id/delete', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  await pool.query('DELETE FROM materias WHERE id = ?', [req.params.id]);
+  res.redirect('/materias');
 });
 
 /* ---------- PROFESORES ---------- */

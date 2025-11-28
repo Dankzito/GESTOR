@@ -127,6 +127,10 @@
               <span class="nav-label">Asistencias</span>
             </a>
             <% if (user.role==='admin' ) { %>
+              <a href="/materias" class="navbtn <%= (path==='/materias') ? 'active' : '' %>" title="Materias">
+                <span class="nav-icon">M</span>
+                <span class="nav-label">Materias</span>
+              </a>
               <a href="/admin" class="navbtn <%= (path==='/admin') ? 'active' : '' %>" title="Admin">
                 <span class="nav-icon">⚙</span>
                 <span class="nav-label">Admin</span>
