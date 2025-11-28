@@ -1,50 +1,9 @@
 <%- include('layout', { title: 'Calificaciones' }) %>
   <div class="card">
     <h2>Gestor de Calificaciones</h2>
-
-    <% if (user.role==='profesor' || user.role==='admin' ) { %>
-      <form action="/calificaciones" method="post" class="inline-form">
-        <select name="alumnoId" required>
-          <option value="" disabled selected>Seleccionar Estudiante</option>
-          <% estudiantes.forEach(e=> { %>
-            <option value="<%= e.id %>">
-              <%= e.nombre %>
-            </option>
-            <% }) %>
-        </select>
-
-        <% if (user.role==='admin' ) { %>
-          <select name="profesorId" required>
-            <option value="" disabled selected>Seleccionar Profesor/Materia</option>
-            <% profesores.forEach(p=> { %>
-              <option value="<%= p.id %>">
-                <%= p.nombre %> - <%= p.materia || 'Sin materia' %>
-              </option>
-              <% }) %>
-          </select>
-        <% } else { %>
-          <!-- Para profesores, permitir seleccionar de la lista (filtrar por nombre si es necesario) -->
-          <select name="profesorId">
-            <option value="">Auto (usar mi registro)</option>
-            <% profesores.forEach(p=> { %>
-              <% if (p.nombre === user.nombre) { %>
-                <option value="<%= p.id %>" selected>
-                  <%= p.nombre %> - <%= p.materia || 'Sin materia' %>
-                </option>
-              <% } else { %>
-                <option value="<%= p.id %>">
-                  <%= p.nombre %> - <%= p.materia || 'Sin materia' %>
-                </option>
-              <% } %>
-            <% }) %>
-          </select>
-        <% } %>
-
-        <input name="nota" placeholder="Nota" type="number" min="0" max="10" required />
-        <input name="comentario" placeholder="Comentario" />
-        <button class="btn">Guardar</button>
-      </form>
-      <% } %>
+    <p style="color: #7f8c8d; margin-bottom: 20px;">
+      Las calificaciones se crean desde el panel de administración o por profesores validados.
+    </p>
 
         <table class="tabla">
           <thead>

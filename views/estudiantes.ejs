@@ -1,14 +1,9 @@
 <%- include('layout', { title: 'Estudiantes' }) %>
 <div class="card">
     <h2>Gestor de Estudiantes</h2>
-
-    <% if (user && user.role === 'admin') { %>
-        <form action="/estudiantes" method="post" class="inline-form">
-            <input name="nombre" placeholder="Nombre estudiante" required />
-            <input name="dni" placeholder="DNI" />
-            <button class="btn">Agregar estudiante</button>
-        </form>
-    <% } %>
+    <p style="color: #7f8c8d; margin-bottom: 20px;">
+      Los estudiantes se registran automáticamente cuando crean una cuenta. El administrador debe validarlos y asignarles un curso desde el panel de administración.
+    </p>
 
     <% if (estudiantes && estudiantes.length > 0) { %>
         <table class="tabla">

@@ -70,65 +70,73 @@ app.get('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/'));
 });
 
-// Register (Optional, keep for admin usage or setup)
+// Register (Solo para alumnos)
 app.get('/register', async (req, res) => {
-  try {
-    const [materias] = await pool.query('SELECT * FROM materias ORDER BY nombre ASC').catch(() => [[]]);
-    res.render('register', { error: null, materias: materias || [] });
-  } catch (err) {
-    // Si la tabla no existe, pasar array vacío
-    res.render('register', { error: null, materias: [] });
-  }
+  res.render('register', { error: null });
 });
 
 app.post('/register', async (req, res) => {
-  const { nombre, email, password, role, materiaId } = req.body;
+  const { nombre, email, password } = req.body;
+  const role = 'alumno'; // Solo se permite registro como alumno
+  
   const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
   if (existing.length) {
-    const [materias] = await pool.query('SELECT * FROM materias ORDER BY nombre ASC').catch(() => [[]]);
-    return res.render('register', { error: 'Email ya registrado', materias: materias || [] });
+    return res.render('register', { error: 'Email ya registrado' });
   }
+  
   const hashed = await bcrypt.hash(password, 10);
   const id = crypto.randomUUID();
 
-  // Profesores no validados por defecto, alumnos y admin validados
-  const validated = (role === 'profesor') ? false : true;
+  // Alumnos no validados por defecto - el admin debe validarlos y asignar curso
+  const validated = false;
 
-  // Si es profesor y tiene materiaId, guardarlo; si no, dejar NULL
-  const finalMateriaId = (role === 'profesor' && materiaId) ? materiaId : null;
-
-  // Verificar si la columna materiaId existe, si no, insertar sin ella
+  // Insertar usuario como alumno no validado
   try {
-    await pool.query('INSERT INTO users (id,nombre,email,password,role,validated,materiaId) VALUES (?,?,?,?,?,?,?)',
-      [id, nombre, email, hashed, role || 'alumno', validated, finalMateriaId]);
+    await pool.query('INSERT INTO users (id,nombre,email,password,role,validated) VALUES (?,?,?,?,?,?)',
+      [id, nombre, email, hashed, role, validated]);
   } catch (err) {
-    // Si la columna no existe, insertar sin materiaId
-    if (err.code === 'ER_BAD_FIELD_ERROR') {
-      await pool.query('INSERT INTO users (id,nombre,email,password,role,validated) VALUES (?,?,?,?,?,?)',
-        [id, nombre, email, hashed, role || 'alumno', validated]);
-    } else {
-      throw err;
-    }
+    console.error('Error al registrar usuario:', err);
+    return res.render('register', { error: 'Error al crear la cuenta. Por favor intenta nuevamente.' });
   }
 
-  // Auto login after register
-  req.session.user = { id, nombre, role: role || 'alumno', email, validated };
+  // Auto login after register - pero mostrará mensaje de validación pendiente
+  req.session.user = { id, nombre, role: role, email, validated };
   res.redirect('/dashboard');
 });
 
 /* ---------- ADMIN PANEL ---------- */
 app.get('/admin', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
   try {
-    const [users] = await pool.query(`
-      SELECT u.*, m.nombre as materia_nombre 
-      FROM users u 
-      LEFT JOIN materias m ON u.materiaId = m.id 
-      ORDER BY u.created_at DESC
-    `).catch(() => {
-      // Si la columna materiaId no existe, hacer consulta simple
-      return pool.query('SELECT * FROM users ORDER BY created_at DESC');
+    // Obtener usuarios con materia y curso
+    let users = [];
+    try {
+      const [usersResult] = await pool.query(`
+        SELECT u.*, m.nombre as materia_nombre, c.nombre as curso_nombre 
+        FROM users u 
+        LEFT JOIN materias m ON u.materiaId = m.id 
+        LEFT JOIN cursos c ON u.cursoId = c.id 
+        ORDER BY u.created_at DESC
+      `);
+      users = Array.isArray(usersResult) ? usersResult : usersResult[0] || [];
+    } catch (err) {
+      // Si las tablas no existen, hacer consulta simple
+      if (err.code === 'ER_NO_SUCH_TABLE' || err.code === 'ER_BAD_FIELD_ERROR') {
+        const [usersResult] = await pool.query('SELECT * FROM users ORDER BY created_at DESC');
+        users = Array.isArray(usersResult) ? usersResult : usersResult[0] || [];
+      } else {
+        throw err;
+      }
+    }
+
+    // Obtener cursos y materias para los selectores
+    const [cursos] = await pool.query('SELECT * FROM cursos ORDER BY nombre ASC').catch(() => [[]]);
+    const [materias] = await pool.query('SELECT * FROM materias ORDER BY nombre ASC').catch(() => [[]]);
+
+    res.render('admin', { 
+      users: users,
+      cursos: cursos || [],
+      materias: materias || []
     });
-    res.render('admin', { users: Array.isArray(users) ? users : users[0] || [] });
   } catch (err) {
     console.error(err);
     res.status(500).send('Error al cargar usuarios');
@@ -142,8 +150,74 @@ app.post('/admin/users/:id/role', ensureAuthenticated, ensureRole('admin'), asyn
 });
 
 app.post('/admin/users/:id/validate', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
-  await pool.query('UPDATE users SET validated = TRUE WHERE id = ?', [req.params.id]);
-  res.redirect('/admin');
+  const { cursoId } = req.body;
+  const userId = req.params.id;
+
+  try {
+    // Validar usuario
+    await pool.query('UPDATE users SET validated = TRUE WHERE id = ?', [userId]);
+    
+    // Si es alumno y se proporcionó cursoId, asignarlo
+    if (cursoId) {
+      await pool.query('UPDATE users SET cursoId = ? WHERE id = ?', [cursoId, userId]).catch(() => {
+        // Si la columna cursoId no existe, ignorar
+      });
+    }
+    
+    res.redirect('/admin');
+  } catch (err) {
+    console.error('Error al validar usuario:', err);
+    res.redirect('/admin');
+  }
+});
+
+// Asignar curso a alumno
+app.post('/admin/users/:id/assign-curso', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  const { cursoId } = req.body;
+  const userId = req.params.id;
+
+  try {
+    await pool.query('UPDATE users SET cursoId = ? WHERE id = ?', [cursoId, userId]).catch(() => {
+      // Si la columna cursoId no existe, ignorar
+    });
+    res.redirect('/admin');
+  } catch (err) {
+    console.error('Error al asignar curso:', err);
+    res.redirect('/admin');
+  }
+});
+
+// Asignar materia a profesor
+app.post('/admin/users/:id/assign-materia', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  const { materiaId } = req.body;
+  const userId = req.params.id;
+
+  try {
+    await pool.query('UPDATE users SET materiaId = ? WHERE id = ?', [materiaId || null, userId]).catch(() => {
+      // Si la columna materiaId no existe, ignorar
+    });
+    
+    // También actualizar o crear registro en tabla profesores
+    const [user] = await pool.query('SELECT nombre FROM users WHERE id = ?', [userId]);
+    if (user.length > 0) {
+      const [materia] = await pool.query('SELECT nombre FROM materias WHERE id = ?', [materiaId || '']).catch(() => [[]]);
+      const materiaNombre = materia.length > 0 ? materia[0].nombre : null;
+      
+      // Buscar si existe registro en profesores
+      const [profesor] = await pool.query('SELECT id FROM profesores WHERE nombre = ?', [user[0].nombre]);
+      if (profesor.length > 0) {
+        await pool.query('UPDATE profesores SET materia = ? WHERE id = ?', [materiaNombre, profesor[0].id]);
+      } else {
+        await pool.query('INSERT INTO profesores (id, nombre, materia) VALUES (?, ?, ?)', 
+          [nanoid(), user[0].nombre, materiaNombre]);
+      }
+    }
+    
+    res.redirect('/admin');
+  } catch (err) {
+    console.error('Error al asignar materia:', err);
+    res.redirect('/admin');
+  }
 });
 
 app.post('/admin/users/:id/delete', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
@@ -325,6 +399,54 @@ app.post('/materias/:id/edit', ensureAuthenticated, ensureRole('admin'), async (
 app.post('/materias/:id/delete', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
   await pool.query('DELETE FROM materias WHERE id = ?', [req.params.id]);
   res.redirect('/materias');
+});
+
+/* ---------- CURSOS ---------- */
+app.get('/cursos', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  try {
+    const [cursos] = await pool.query('SELECT * FROM cursos ORDER BY nombre ASC');
+    res.render('cursos', { cursos });
+  } catch (err) {
+    console.error('Error al obtener cursos:', err);
+    // Si la tabla no existe, crear estructura básica
+    if (err.code === 'ER_NO_SUCH_TABLE') {
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS cursos (
+            id VARCHAR(50) PRIMARY KEY,
+            nombre VARCHAR(200) NOT NULL,
+            descripcion TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        `);
+        res.render('cursos', { cursos: [] });
+      } catch (createErr) {
+        console.error('Error al crear tabla cursos:', createErr);
+        res.status(500).send('Error al inicializar la tabla de cursos. Por favor ejecuta: sql/add_cursos.sql');
+      }
+    } else {
+      res.status(500).send('Error al cargar cursos: ' + err.message);
+    }
+  }
+});
+
+app.post('/cursos', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  const { nombre, descripcion } = req.body;
+  await pool.query('INSERT INTO cursos (id, nombre, descripcion) VALUES (?, ?, ?)', 
+    [nanoid(), nombre, descripcion || null]);
+  res.redirect('/cursos');
+});
+
+app.post('/cursos/:id/edit', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  const { nombre, descripcion } = req.body;
+  await pool.query('UPDATE cursos SET nombre = ?, descripcion = ? WHERE id = ?', 
+    [nombre, descripcion || null, req.params.id]);
+  res.redirect('/cursos');
+});
+
+app.post('/cursos/:id/delete', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  await pool.query('DELETE FROM cursos WHERE id = ?', [req.params.id]);
+  res.redirect('/cursos');
 });
 
 /* ---------- PROFESORES ---------- */

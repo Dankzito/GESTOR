@@ -1,8 +1,8 @@
 <%- include('layout', { title: 'Dashboard' }) %>
 
   <div class="shell">
-    <% if (user.role==='profesor' && !user.validated) { %>
-      <!-- Profesor no validado -->
+    <% if ((user.role==='profesor' || user.role==='alumno') && !user.validated) { %>
+      <!-- Usuario no validado -->
       <div class="card pending-validation-card">
         <div class="pending-icon">
           <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#f39c12" stroke-width="2">
@@ -15,7 +15,12 @@
         <h2 class="pending-title">Cuenta Pendiente de Validación</h2>
 
         <p class="pending-message">
-          Tu cuenta de profesor ha sido creada exitosamente, pero aún no ha sido validada por un administrador.
+          <% if (user.role === 'alumno') { %>
+            Tu cuenta de alumno ha sido creada exitosamente, pero aún no ha sido validada por un administrador. 
+            Un administrador debe validar tu cuenta y asignarte un curso para que puedas acceder a todas las funcionalidades.
+          <% } else { %>
+            Tu cuenta de profesor ha sido creada exitosamente, pero aún no ha sido validada por un administrador.
+          <% } %>
         </p>
 
         <div class="pending-info">

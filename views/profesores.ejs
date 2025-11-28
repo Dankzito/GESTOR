@@ -2,14 +2,9 @@
 
   <div class="card">
     <h2>Gestor de Profesores</h2>
-
-    <% if (user.role==='admin' ) { %>
-      <form action="/profesores" method="post" class="inline-form">
-        <input name="nombre" placeholder="Nombre profesor" required />
-        <input name="materia" placeholder="Materia" />
-        <button class="btn">Agregar profesor</button>
-      </form>
-      <% } %>
+    <p style="color: #7f8c8d; margin-bottom: 20px;">
+      Los profesores se crean cuando un usuario se registra con rol profesor o cuando el administrador cambia el rol de un usuario. El administrador debe validarlos y asignarles materia desde el panel de administración.
+    </p>
 
         <table class="tabla">
           <thead>

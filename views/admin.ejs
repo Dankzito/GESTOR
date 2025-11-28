@@ -9,6 +9,7 @@
                 <th>Email</th>
                 <th>Rol</th>
                 <th>Estado</th>
+                <th>Curso/Materia</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -25,50 +26,110 @@
                         <span class="badge role-<%= u.role %>">
                             <%= u.role %>
                         </span>
-                        <% if (u.role === 'profesor' && u.materia_nombre) { %>
-                            <br><small style="color: #7f8c8d; font-size: 0.75rem;">Materia: <%= u.materia_nombre %></small>
+                    </td>
+                    <td>
+                        <% if (u.validated) { %>
+                            <span class="badge badge-validated">✓ Validado</span>
+                        <% } else { %>
+                            <span class="badge badge-pending">⏳ Pendiente</span>
                         <% } %>
                     </td>
                     <td>
-                        <% if (u.role==='profesor' ) { %>
-                            <% if (u.validated) { %>
-                                <span class="badge badge-validated">✓ Validado</span>
-                                <% } else { %>
-                                    <span class="badge badge-pending">⏳ Pendiente</span>
-                                    <% } %>
-                                        <% } else { %>
-                                            <span class="text-muted">-</span>
-                                            <% } %>
+                        <% if (u.role === 'alumno') { %>
+                            <% if (u.curso_nombre) { %>
+                                <span style="color: #2980b9; font-weight: 600;"><%= u.curso_nombre %></span>
+                            <% } else { %>
+                                <span class="text-muted">Sin curso</span>
+                            <% } %>
+                        <% } else if (u.role === 'profesor') { %>
+                            <% if (u.materia_nombre) { %>
+                                <span style="color: #2980b9; font-weight: 600;"><%= u.materia_nombre %></span>
+                            <% } else { %>
+                                <span class="text-muted">Sin materia</span>
+                            <% } %>
+                        <% } else { %>
+                            <span class="text-muted">-</span>
+                        <% } %>
                     </td>
                     <td>
-                        <% if (u.email !==user.email) { %>
+                        <% if (u.email !== user.email) { %>
                             <div class="actions">
-                                <% if (u.role==='profesor' && !u.validated) { %>
-                                    <form action="/admin/users/<%= u.id %>/validate" method="POST"
-                                        style="display:inline; margin-right: 5px;">
+                                <!-- Validar y asignar curso a alumno -->
+                                <% if (u.role === 'alumno' && !u.validated) { %>
+                                    <form action="/admin/users/<%= u.id %>/validate" method="POST" style="display:inline; margin-right: 5px;">
+                                        <select name="cursoId" required class="select-sm" style="margin-right: 5px;">
+                                            <option value="" disabled selected>Seleccionar Curso</option>
+                                            <% if (typeof cursos !== 'undefined' && cursos.length > 0) { %>
+                                                <% cursos.forEach(c => { %>
+                                                    <option value="<%= c.id %>"><%= c.nombre %></option>
+                                                <% }) %>
+                                            <% } else { %>
+                                                <option value="" disabled>No hay cursos disponibles</option>
+                                            <% } %>
+                                        </select>
+                                        <button type="submit" class="btn btn-success-sm">Validar y Asignar Curso</button>
+                                    </form>
+                                <% } %>
+                                
+                                <!-- Asignar curso a alumno validado -->
+                                <% if (u.role === 'alumno' && u.validated) { %>
+                                    <form action="/admin/users/<%= u.id %>/assign-curso" method="POST" style="display:inline; margin-right: 5px;">
+                                        <select name="cursoId" class="select-sm" style="margin-right: 5px;" onchange="this.form.submit()">
+                                            <option value="" disabled <%= !u.cursoId ? 'selected' : '' %>>Cambiar Curso</option>
+                                            <% if (typeof cursos !== 'undefined' && cursos.length > 0) { %>
+                                                <% cursos.forEach(c => { %>
+                                                    <option value="<%= c.id %>" <%= u.cursoId === c.id ? 'selected' : '' %>><%= c.nombre %></option>
+                                                <% }) %>
+                                            <% } %>
+                                            <option value="">Sin curso</option>
+                                        </select>
+                                    </form>
+                                <% } %>
+
+                                <!-- Validar profesor -->
+                                <% if (u.role === 'profesor' && !u.validated) { %>
+                                    <form action="/admin/users/<%= u.id %>/validate" method="POST" style="display:inline; margin-right: 5px;">
                                         <button type="submit" class="btn btn-success-sm">Validar</button>
                                     </form>
-                                    <% } %>
-                                        <form action="/admin/users/<%= u.id %>/role" method="POST"
-                                            style="display:inline; margin-right: 5px;">
-                                            <select name="role" onchange="this.form.submit()" class="select-sm">
-                                                <option value="" disabled selected>Cambiar Rol</option>
-                                                <option value="alumno">Alumno</option>
-                                                <option value="profesor">Profesor</option>
-                                                <option value="admin">Admin</option>
-                                            </select>
-                                        </form>
-                                        <form action="/admin/users/<%= u.id %>/delete" method="POST" style="display:inline;"
-                                            onsubmit="return confirm('¿Eliminar usuario?');">
-                                            <button type="submit" class="btn btn-danger-sm">Eliminar</button>
-                                        </form>
-                            </div>
-                            <% } else { %>
-                                <span class="text-muted">Tu cuenta</span>
                                 <% } %>
+
+                                <!-- Asignar materia a profesor -->
+                                <% if (u.role === 'profesor') { %>
+                                    <form action="/admin/users/<%= u.id %>/assign-materia" method="POST" style="display:inline; margin-right: 5px;">
+                                        <select name="materiaId" class="select-sm" style="margin-right: 5px;" onchange="this.form.submit()">
+                                            <option value="" disabled <%= !u.materiaId ? 'selected' : '' %>>Asignar Materia</option>
+                                            <% if (typeof materias !== 'undefined' && materias.length > 0) { %>
+                                                <% materias.forEach(m => { %>
+                                                    <option value="<%= m.id %>" <%= u.materiaId === m.id ? 'selected' : '' %>><%= m.nombre %></option>
+                                                <% }) %>
+                                            <% } %>
+                                            <option value="">Sin materia</option>
+                                        </select>
+                                    </form>
+                                <% } %>
+
+                                <!-- Cambiar rol -->
+                                <form action="/admin/users/<%= u.id %>/role" method="POST" style="display:inline; margin-right: 5px;">
+                                    <select name="role" onchange="this.form.submit()" class="select-sm">
+                                        <option value="" disabled selected>Cambiar Rol</option>
+                                        <option value="alumno" <%= u.role === 'alumno' ? 'selected' : '' %>>Alumno</option>
+                                        <option value="profesor" <%= u.role === 'profesor' ? 'selected' : '' %>>Profesor</option>
+                                        <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                                    </select>
+                                </form>
+
+                                <!-- Eliminar -->
+                                <form action="/admin/users/<%= u.id %>/delete" method="POST" style="display:inline;"
+                                    onsubmit="return confirm('¿Eliminar usuario?');">
+                                    <button type="submit" class="btn btn-danger-sm">Eliminar</button>
+                                </form>
+                            </div>
+                        <% } else { %>
+                            <span class="text-muted">Tu cuenta</span>
+                        <% } %>
                     </td>
                 </tr>
-                <% }); %>
+            <% }); %>
         </tbody>
     </table>
 </div>
