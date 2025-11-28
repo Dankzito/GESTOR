@@ -1,0 +1,83 @@
+<%- include('layout', { title: 'Calificaciones' }) %>
+  <div class="card">
+    <h2>Gestor de Calificaciones</h2>
+
+    <% if (user.role==='maestro' || user.role==='admin' ) { %>
+      <form action="/calificaciones" method="post" class="inline-form">
+        <select name="alumnoId" required>
+          <option value="" disabled selected>Seleccionar Estudiante</option>
+          <% estudiantes.forEach(e=> { %>
+            <option value="<%= e.id %>">
+              <%= e.nombre %>
+            </option>
+            <% }) %>
+        </select>
+
+        <select name="profesorId" required>
+          <option value="" disabled selected>Seleccionar Profesor/Materia</option>
+          <% profesores.forEach(p=> { %>
+            <option value="<%= p.id %>">
+              <%= p.nombre %> - <%= p.materia %>
+            </option>
+            <% }) %>
+        </select>
+
+        <input name="nota" placeholder="Nota" type="number" min="0" max="10" required />
+        <input name="comentario" placeholder="Comentario" />
+        <button class="btn">Guardar</button>
+      </form>
+      <% } %>
+
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Estudiante</th>
+              <th>Materia / Profesor</th>
+              <th>Nota</th>
+              <th>Comentario</th>
+              <th>Fecha</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% calificaciones.forEach(c=> { %>
+              <tr>
+                <td>
+                  <%= c.estudiante_nombre || '—' %>
+                </td>
+                <td>
+                  <% if(c.materia) { %>
+                    <%= c.materia %>
+                      <% if(c.profesor_nombre) { %> (<%= c.profesor_nombre %>) <% } %>
+                            <% } else { %>
+                              <%= c.profesor_nombre || '—' %>
+                                <% } %>
+                </td>
+                <td>
+                  <%= c.nota %>
+                </td>
+                <td>
+                  <%= c.comentario %>
+                </td>
+                <td>
+                  <%= new Date(c.fecha).toLocaleString() %>
+                </td>
+                <td>
+                  <% if (user.role==='maestro' || user.role==='admin' ) { %>
+                    <form style="display:inline" method="post" action="/calificaciones/<%= c.id %>/edit">
+                      <input name="nota" value="<%= c.nota %>" style="width:60px" type="number" />
+                      <input name="comentario" value="<%= c.comentario %>" />
+                      <button class="link-btn">Editar</button>
+                    </form>
+                    <% } %>
+                      <% if (user.role==='admin' ) { %>
+                        <form style="display:inline" method="post" action="/calificaciones/<%= c.id %>/delete"><button
+                            class="link-btn">Eliminar</button></form>
+                        <% } %>
+                </td>
+              </tr>
+              <% }) %>
+          </tbody>
+        </table>
+  </div>
+  <%- include('footer') %>

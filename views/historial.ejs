@@ -1,0 +1,88 @@
+<%- include('layout', { title: 'Historial Académico' }) %>
+
+    <div class="card">
+        <h2>Historial de: <%= estudiante.nombre %>
+        </h2>
+        <p><strong>DNI:</strong>
+            <%= estudiante.dni || 'No registrado' %>
+        </p>
+        <a href="/estudiantes" class="link-btn">&larr; Volver a Estudiantes</a>
+    </div>
+
+    <div class="modules-grid">
+        <!-- Calificaciones -->
+        <div class="card">
+            <h3>Calificaciones</h3>
+            <% if(calificaciones.length===0) { %>
+                <p class="hint">No hay calificaciones registradas.</p>
+                <% } else { %>
+                    <table class="tabla">
+                        <thead>
+                            <tr>
+                                <th>Materia</th>
+                                <th>Nota</th>
+                                <th>Comentario</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% calificaciones.forEach(c=> { %>
+                                <tr>
+                                    <td>
+                                        <%= c.materia || c.profesor_nombre || '-' %>
+                                    </td>
+                                    <td><strong>
+                                            <%= c.nota %>
+                                        </strong></td>
+                                    <td>
+                                        <%= c.comentario %>
+                                    </td>
+                                    <td>
+                                        <%= new Date(c.fecha).toLocaleDateString() %>
+                                    </td>
+                                </tr>
+                                <% }) %>
+                        </tbody>
+                    </table>
+                    <% } %>
+        </div>
+
+        <!-- Asistencias -->
+        <div class="card">
+            <h3>Asistencias</h3>
+            <% if(asistencias.length===0) { %>
+                <p class="hint">No hay registros de asistencia.</p>
+                <% } else { %>
+                    <table class="tabla">
+                        <thead>
+                            <tr>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% asistencias.forEach(a=> { %>
+                                <tr>
+                                    <td>
+                                        <% if(a.estado==='presente' ) { %>
+                                            <span style="color:green">Presente</span>
+                                            <% } else if(a.estado==='ausente' ) { %>
+                                                <span style="color:red">Ausente</span>
+                                                <% } else { %>
+                                                    <span style="color:orange">
+                                                        <%= a.estado %>
+                                                    </span>
+                                                    <% } %>
+                                    </td>
+                                    <td>
+                                        <%= new Date(a.fecha).toLocaleString() %>
+                                    </td>
+                                </tr>
+                                <% }) %>
+                        </tbody>
+                    </table>
+                    <% } %>
+        </div>
+    </div>
+
+    <%- include('footer') %>

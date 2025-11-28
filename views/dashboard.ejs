@@ -1,0 +1,25 @@
+<%- include('layout', { title: 'Dashboard' }) %>
+
+
+<div class="modules-grid">
+  <% 
+    // Auto-detect modules from a server-passed array "modules"
+    // If not provided, show a fallback based on common views
+    const fallback = [
+      {label:'Modulo de alumnos', title:'Gestión de alumnos', route:'/alumnos'},
+      {label:'Modulo de asistencias', title:'Asistencias', route:'/asistencias'},
+      {label:'Modulo de calificaciones', title:'Calificaciones', route:'/calificaciones'},
+      {label:'Modulo de profesores', title:'Profesores', route:'/profesores'}
+    ];
+    const list = (typeof modules !== 'undefined' && modules.length) ? modules : fallback;
+    list.forEach(m => { 
+  %>
+  <a class="module-card" href="<%= m.route || '#' %>">
+    <div class="label"><%= m.label || '' %></div>
+    <div class="eye" aria-hidden="true">👁️</div>
+    <div class="title"><%= m.title || m.name || 'Módulo' %></div>
+  </a>
+  <% }) %>
+</div>
+
+<p class="hint">Nota: los módulos reales se obtendrán dinámicamente desde el backend si pasas un array "modules" al renderizar.</p>

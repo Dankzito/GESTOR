@@ -1,0 +1,49 @@
+<%- include('layout', { title: 'Asistencias' }) %>
+  <div class="card">
+    <h2>Gestor de Asistencias</h2>
+
+    <% if (user.role==='maestro' || user.role==='admin' ) { %>
+      <form action="/asistencias" method="post" class="inline-form">
+        <select name="alumnoId" required>
+          <option value="" disabled selected>Seleccionar Estudiante</option>
+          <% estudiantes.forEach(e=> { %>
+            <option value="<%= e.id %>">
+              <%= e.nombre %>
+            </option>
+            <% }) %>
+        </select>
+        <select name="estado" required>
+          <option value="presente">Presente</option>
+          <option value="ausente">Ausente</option>
+          <option value="tardanza">Tardanza</option>
+        </select>
+        <button class="btn">Registrar</button>
+      </form>
+      <% } %>
+
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Estudiante</th>
+              <th>Estado</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% asistencias.forEach(a=> { %>
+              <tr>
+                <td>
+                  <%= a.estudiante_nombre || '—' %>
+                </td>
+                <td>
+                  <%= a.estado %>
+                </td>
+                <td>
+                  <%= new Date(a.fecha).toLocaleString() %>
+                </td>
+              </tr>
+              <% }) %>
+          </tbody>
+        </table>
+  </div>
+  <%- include('footer') %>

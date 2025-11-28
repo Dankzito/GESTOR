@@ -1,0 +1,48 @@
+<%- include('layout', { title: 'Estudiantes' }) %>
+<div class="card">
+    <h2>Gestor de Estudiantes</h2>
+
+    <% if (user && user.role === 'admin') { %>
+        <form action="/estudiantes" method="post" class="inline-form">
+            <input name="nombre" placeholder="Nombre estudiante" required />
+            <input name="dni" placeholder="DNI" />
+            <button class="btn">Agregar estudiante</button>
+        </form>
+    <% } %>
+
+    <% if (estudiantes && estudiantes.length > 0) { %>
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>DNI</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% estudiantes.forEach(e => { %>
+                    <tr>
+                        <td><%= e.nombre %></td>
+                        <td><%= e.dni || '-' %></td>
+                        <td>
+                            <a href="/estudiantes/<%= e.id %>/historial" class="link-btn">Ver Historial</a>
+                            <% if (user && user.role === 'admin') { %>
+                                <form style="display:inline" action="/estudiantes/<%= e.id %>/delete" method="post">
+                                    <button type="submit" class="link-btn">Eliminar</button>
+                                </form>
+                            <% } %>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    <% } else { %>
+        <div style="text-align: center; padding: 40px; color: #7f8c8d;">
+            <p style="font-size: 1.1rem;">No hay estudiantes registrados aún.</p>
+            <% if (user && user.role === 'admin') { %>
+                <p style="margin-top: 10px; font-size: 0.9rem;">Usa el formulario de arriba para agregar uno.</p>
+            <% } %>
+        </div>
+    <% } %>
+</div>
+<%- include('footer') %>

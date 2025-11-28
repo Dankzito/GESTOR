@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>
+    <%= title || 'Gestor de módulos' %>
+  </title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-content {
+      background-color: #fefefe;
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 300px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 10px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-submit:hover {
+      background: #0056b3;
+    }
+
+    .error-msg {
+      color: #e74c3c;
+      font-size: 0.9em;
+      margin-bottom: 10px;
+      display: none;
+      padding: 10px;
+      background: rgba(231, 76, 60, 0.1);
+      border-radius: 6px;
+      border-left: 3px solid #e74c3c;
+    }
+  </style>
+</head>
+
+<body>
+  <% var active=active || '' ; %>
+
+    <div id="app" class="app-layout">
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar" aria-label="Barra lateral">
+        <div class="hamburger" id="hamburger" title="Menú" aria-label="Toggle menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"
+            aria-hidden="true">
+            <path d="M3 6h18M3 12h18M3 18h18" />
+          </svg>
+        </div>
+
+        <nav class="navdots" role="navigation" aria-label="Navegación principal">
+          <% if (user) { %>
+            <a href="/dashboard" class="navbtn <%= (path==='/dashboard') ? 'active' : '' %>" title="Dashboard">
+              <span class="nav-icon">D</span>
+              <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="/profesores" class="navbtn <%= (path==='/profesores') ? 'active' : '' %>" title="Profesores">
+              <span class="nav-icon">P</span>
+              <span class="nav-label">Profesores</span>
+            </a>
+            <a href="/estudiantes" class="navbtn <%= (path==='/estudiantes') ? 'active' : '' %>" title="Estudiantes">
+              <span class="nav-icon">E</span>
+              <span class="nav-label">Estudiantes</span>
+            </a>
+            <a href="/asistencias" class="navbtn <%= (path==='/asistencias') ? 'active' : '' %>" title="Asistencias">
+              <span class="nav-icon">A</span>
+              <span class="nav-label">Asistencias</span>
+            </a>
+            <a href="/calificaciones" class="navbtn <%= (path==='/calificaciones') ? 'active' : '' %>" title="Calificaciones">
+              <span class="nav-icon">C</span>
+              <span class="nav-label">Calificaciones</span>
+            </a>
+            <% } else { %>
+              <button id="loginBtn" class="navbtn" title="Iniciar Sesión">
+                <span class="nav-icon">L</span>
+                <span class="nav-label">Login</span>
+              </button>
+              <% } %>
+        </nav>
+
+        <div class="avatar">
+          <% if (user) { %>
+            <a href="/logout" title="Cerrar Sesión" aria-label="Cerrar Sesión">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#c6d0da" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" />
+                <polyline points="16 17 21 12 16 7" stroke="#c6d0da" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <line x1="21" y1="12" x2="9" y2="12" stroke="#c6d0da" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </a>
+            <% } else { %>
+              <div style="width: 36px; height: 36px;"></div>
+              <% } %>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main class="main">
+        <header class="header">
+          <h1>
+            <%= title || 'Inicio' %>
+          </h1>
+          <div class="welcome">
+            <% if(user){ %>
+              Hola, <%= user.nombre %> (<%= user.role %>)
+                  <% } else { %>
+                    Bienvenido
+                    <% } %>
+          </div>
+        </header>
+
+        <div class="shell">
