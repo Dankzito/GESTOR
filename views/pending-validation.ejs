@@ -1,0 +1,114 @@
+<%- include('layout', { title: 'Pendiente de Validación' }) %>
+
+    <div class="shell">
+        <div class="card pending-validation-card">
+            <div class="pending-icon">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#f39c12" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+
+            <h2 class="pending-title">Cuenta Pendiente de Validación</h2>
+
+            <p class="pending-message">
+                Tu cuenta de profesor ha sido creada exitosamente, pero aún no ha sido validada por un administrador.
+            </p>
+
+            <div class="pending-info">
+                <h3>¿Qué significa esto?</h3>
+                <ul>
+                    <li>Tu cuenta está en proceso de revisión</li>
+                    <li>No podrás acceder a las funcionalidades de profesor hasta ser validado</li>
+                    <li>Un administrador revisará y validará tu cuenta pronto</li>
+                </ul>
+            </div>
+
+            <div class="pending-actions">
+                <p><strong>¿Necesitas ayuda?</strong></p>
+                <p>Contacta al administrador del sistema para acelerar el proceso de validación.</p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .pending-validation-card {
+            max-width: 600px;
+            margin: 40px auto;
+            text-align: center;
+            padding: 50px 40px;
+        }
+
+        .pending-icon {
+            margin-bottom: 30px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        .pending-title {
+            color: #f39c12;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+        }
+
+        .pending-message {
+            font-size: 1.1rem;
+            color: #555;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .pending-info {
+            background: rgba(243, 156, 18, 0.1);
+            border-left: 4px solid #f39c12;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .pending-info h3 {
+            color: #f39c12;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .pending-info ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .pending-info li {
+            margin-bottom: 10px;
+            color: #555;
+        }
+
+        .pending-actions {
+            background: rgba(52, 152, 219, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .pending-actions p {
+            margin: 5px 0;
+            color: #555;
+        }
+
+        .pending-actions strong {
+            color: #3498db;
+        }
+    </style>
+
+    <%- include('footer') %>

@@ -1,59 +1,164 @@
-<%- include('layout', { title: 'Panel de Administración' }) %>
-    <% active='admin' ; %>
+<table class="tabla">
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        <% users.forEach(u=> { %>
+            <tr>
+                <td>
+                    <%= u.nombre %>
+                </td>
+                <td>
+                    <%= u.email %>
+                </td>
+                <td>
+                    <span class="badge role-<%= u.role %>">
+                        <%= u.role %>
+                    </span>
+                </td>
+                <td>
+                    <% if (u.role==='profesor' ) { %>
+                        <% if (u.validated) { %>
+                            <span class="badge badge-validated">✓ Validado</span>
+                            <% } else { %>
+                                <span class="badge badge-pending">⏳ Pendiente</span>
+                                <% } %>
+                                    <% } else { %>
+                                        <span class="text-muted">-</span>
+                                        <% } %>
+                </td>
+                <td>
+                    <% if (u.email !==user.email) { %>
+                        <div class="actions">
+                            <% if (u.role==='profesor' && !u.validated) { %>
+                                <form action="/admin/users/<%= u.id %>/validate" method="POST"
+                                    style="display:inline; margin-right: 5px;">
+                                    <button type="submit" class="btn btn-success-sm">Validar</button>
+                                </form>
+                                <% } %>
+                                    <form action="/admin/users/<%= u.id %>/role" method="POST"
+                                        style="display:inline; margin-right: 5px;">
+                                        <select name="role" onchange="this.form.submit()" class="select-sm">
+                                            <option value="" disabled selected>Cambiar Rol</option>
+                                            <option value="alumno">Alumno</option>
+                                            <option value="profesor">Profesor</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
+                                    </form>
+                                    <form action="/admin/users/<%= u.id %>/delete" method="POST" style="display:inline;"
+                                        onsubmit="return confirm('¿Eliminar usuario?');">
+                                        <button type="submit" class="btn btn-danger-sm">Eliminar</button>
+                                    </form>
+                        </div>
+                        <% } else { %>
+                            <span class="text-muted">Tu cuenta</span>
+                            <% } %>
+                </td>
+            </tr>
+            <% }); %>
+    </tbody>
+</table>
+</div>
+</div>
 
-        <div class="card">
-            <h2>Panel de Administración</h2>
-            <p>Gestión de usuarios y roles</p>
+<style>
+    .badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
+    }
 
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Email</th>
-                            <th>Rol Actual</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% users.forEach(u=> { %>
-                            <tr>
-                                <td>
-                                    <%= u.nombre %>
-                                </td>
-                                <td>
-                                    <%= u.email %>
-                                </td>
-                                <td><span class="badge role-<%= u.role %>">
-                                        <%= u.role %>
-                                    </span></td>
-                                <td>
-                                    <% if (u.email !==user.email) { %>
-                                        <div class="actions">
-                                            <form action="/admin/users/<%= u.id %>/role" method="POST"
-                                                style="display:inline;">
-                                                <select name="role" onchange="this.form.submit()">
-                                                    <option value="" disabled selected>Cambiar Rol</option>
-                                                    <option value="alumno">Alumno</option>
-                                                    <option value="profesor">Profesor</option>
-                                                    <option value="admin">Admin</option>
-                                                </select>
-                                            </form>
-                                            <form action="/admin/users/<%= u.id %>/delete" method="POST"
-                                                style="display:inline;"
-                                                onsubmit="return confirm('¿Eliminar usuario?');">
-                                                <button type="submit" class="btn-danger sm">Eliminar</button>
-                                            </form>
-                                        </div>
-                                        <% } else { %>
-                                            <span class="text-muted">Tu cuenta</span>
-                                            <% } %>
-                                </td>
-                            </tr>
-                            <% }); %>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    .badge-validated {
+        background: rgba(46, 204, 113, 0.2);
+        color: #27ae60;
+        border: 1px solid #27ae60;
+    }
 
-        <%- include('footer') %>
+    .badge-pending {
+        background: rgba(243, 156, 18, 0.2);
+        color: #f39c12;
+        border: 1px solid #f39c12;
+    }
+
+    .role-admin {
+        background: rgba(231, 76, 60, 0.2);
+        color: #c0392b;
+        border: 1px solid #c0392b;
+    }
+
+    .role-profesor {
+        background: rgba(52, 152, 219, 0.2);
+        color: #2980b9;
+        border: 1px solid #2980b9;
+    }
+
+    .role-alumno {
+        background: rgba(155, 89, 182, 0.2);
+        color: #8e44ad;
+        border: 1px solid #8e44ad;
+    }
+
+    .btn-success-sm {
+        padding: 6px 12px;
+        background: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .btn-success-sm:hover {
+        background: #229954;
+        transform: translateY(-1px);
+    }
+
+    .btn-danger-sm {
+        padding: 6px 12px;
+        background: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .btn-danger-sm:hover {
+        background: #c0392b;
+        transform: translateY(-1px);
+    }
+
+    .select-sm {
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+
+    .actions {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .text-muted {
+        color: #95a5a6;
+        font-style: italic;
+    }
+</style>
+
+<%- include('footer') %>

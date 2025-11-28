@@ -5,7 +5,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const path = require('path');
 const { pool, initDB } = require('./db');
-const { ensureAuthenticated, ensureRole } = require('./middlewares/auth');
+const { ensureAuthenticated, ensureRole, ensureValidated } = require('./middlewares/auth');
 const { nanoid } = require('nanoid');
 require('dotenv').config();
 
@@ -49,7 +49,16 @@ app.post('/api/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
-    req.session.user = { id: user.id, nombre: user.nombre, role: user.role, email: user.email };
+    // Actualizar last_login
+    await pool.query('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]);
+
+    req.session.user = {
+      id: user.id,
+      nombre: user.nombre,
+      role: user.role,
+      email: user.email,
+      validated: user.validated
+    };
     res.json({ success: true, redirect: '/dashboard' });
   } catch (err) {
     console.error(err);
@@ -69,10 +78,15 @@ app.post('/register', async (req, res) => {
   if (existing.length) return res.render('register', { error: 'Email ya registrado' });
   const hashed = await bcrypt.hash(password, 10);
   const id = crypto.randomUUID();
-  await pool.query('INSERT INTO users (id,nombre,email,password,role) VALUES (?,?,?,?,?)', [id, nombre, email, hashed, role || 'alumno']);
+
+  // Profesores no validados por defecto, alumnos y admin validados
+  const validated = (role === 'profesor') ? false : true;
+
+  await pool.query('INSERT INTO users (id,nombre,email,password,role,validated) VALUES (?,?,?,?,?,?)',
+    [id, nombre, email, hashed, role || 'alumno', validated]);
 
   // Auto login after register
-  req.session.user = { id, nombre, role: role || 'alumno', email };
+  req.session.user = { id, nombre, role: role || 'alumno', email, validated };
   res.redirect('/dashboard');
 });
 
@@ -93,6 +107,11 @@ app.post('/admin/users/:id/role', ensureAuthenticated, ensureRole('admin'), asyn
   res.redirect('/admin');
 });
 
+app.post('/admin/users/:id/validate', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  await pool.query('UPDATE users SET validated = TRUE WHERE id = ?', [req.params.id]);
+  res.redirect('/admin');
+});
+
 app.post('/admin/users/:id/delete', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
   await pool.query('DELETE FROM users WHERE id = ?', [req.params.id]);
   res.redirect('/admin');
@@ -106,8 +125,71 @@ app.get('/', async (req, res) => {
 
 /* ---------- DASHBOARD & MODULES ---------- */
 app.get('/dashboard', ensureAuthenticated, async (req, res) => {
-  const [modules] = await pool.query('SELECT * FROM modules');
-  res.render('dashboard', { modules });
+  const user = req.session.user;
+  let stats = {};
+
+  try {
+    if (user.role === 'admin') {
+      // Estadísticas para admin
+      const [userCount] = await pool.query('SELECT COUNT(*) as total FROM users');
+      const [pendingProfs] = await pool.query('SELECT COUNT(*) as total FROM users WHERE role = "profesor" AND validated = FALSE');
+      const [studentCount] = await pool.query('SELECT COUNT(*) as total FROM estudiantes');
+      const [gradeCount] = await pool.query('SELECT COUNT(*) as total FROM calificaciones');
+      const [pendingProfsList] = await pool.query('SELECT id, nombre, email FROM users WHERE role = "profesor" AND validated = FALSE LIMIT 5');
+
+      stats = {
+        totalUsers: userCount[0].total,
+        pendingProfessors: pendingProfs[0].total,
+        totalStudents: studentCount[0].total,
+        totalGrades: gradeCount[0].total,
+        pendingProfessorsList: pendingProfsList
+      };
+    } else if (user.role === 'profesor') {
+      // Estadísticas para profesor
+      const [gradeCount] = await pool.query('SELECT COUNT(*) as total FROM calificaciones WHERE profesorId = ?', [user.id]);
+      const [recentGrades] = await pool.query(`
+        SELECT c.*, e.nombre as estudiante_nombre 
+        FROM calificaciones c
+        LEFT JOIN estudiantes e ON c.alumnoId = e.id
+        WHERE c.profesorId = ?
+        ORDER BY c.fecha DESC LIMIT 5
+      `, [user.id]);
+      const [todayAttendance] = await pool.query(`
+        SELECT COUNT(*) as total FROM asistencias 
+        WHERE DATE(fecha) = CURDATE()
+      `);
+
+      stats = {
+        totalGrades: gradeCount[0].total,
+        recentGrades: recentGrades,
+        todayAttendance: todayAttendance[0].total
+      };
+    } else if (user.role === 'alumno') {
+      // Estadísticas para alumno
+      const [avgGrade] = await pool.query('SELECT AVG(nota) as promedio FROM calificaciones WHERE alumnoId = ?', [user.id]);
+      const [recentGrades] = await pool.query(`
+        SELECT c.*, p.nombre as profesor_nombre
+        FROM calificaciones c
+        LEFT JOIN profesores p ON c.profesorId = p.id
+        WHERE c.alumnoId = ?
+        ORDER BY c.fecha DESC LIMIT 5
+      `, [user.id]);
+      const [monthAttendance] = await pool.query(`
+        SELECT COUNT(*) as total FROM asistencias 
+        WHERE alumnoId = ? AND MONTH(fecha) = MONTH(CURDATE())
+      `, [user.id]);
+
+      stats = {
+        averageGrade: avgGrade[0].promedio ? avgGrade[0].promedio.toFixed(2) : 'N/A',
+        recentGrades: recentGrades,
+        monthAttendance: monthAttendance[0].total
+      };
+    }
+  } catch (err) {
+    console.error('Error al obtener estadísticas:', err);
+  }
+
+  res.render('dashboard', { stats });
 });
 
 /* ---------- ESTUDIANTES (Antes Alumnos) ---------- */
@@ -206,7 +288,7 @@ app.get('/calificaciones', ensureAuthenticated, async (req, res) => {
     res.status(500).send('Error al cargar calificaciones: ' + err.message);
   }
 });
-app.post('/calificaciones', ensureAuthenticated, ensureRole('profesor'), async (req, res) => {
+app.post('/calificaciones', ensureAuthenticated, ensureValidated, ensureRole('profesor'), async (req, res) => {
   const { alumnoId, nota, comentario, profesorId } = req.body;
   // Fetch materia from profesor if not provided, or just use what's linked
   let materia = '';
@@ -219,7 +301,7 @@ app.post('/calificaciones', ensureAuthenticated, ensureRole('profesor'), async (
     [nanoid(), alumnoId, Number(nota), comentario, new Date(), profesorId, materia]);
   res.redirect('/calificaciones');
 });
-app.post('/calificaciones/:id/edit', ensureAuthenticated, ensureRole('profesor'), async (req, res) => {
+app.post('/calificaciones/:id/edit', ensureAuthenticated, ensureValidated, ensureRole('profesor'), async (req, res) => {
   const { nota, comentario } = req.body;
   await pool.query('UPDATE calificaciones SET nota = ?, comentario = ? WHERE id = ?', [Number(nota), comentario, req.params.id]);
   res.redirect('/calificaciones');
@@ -244,7 +326,7 @@ app.get('/asistencias', ensureAuthenticated, async (req, res) => {
     res.status(500).send('Error al cargar asistencias: ' + err.message);
   }
 });
-app.post('/asistencias', ensureAuthenticated, ensureRole('profesor'), async (req, res) => {
+app.post('/asistencias', ensureAuthenticated, ensureValidated, ensureRole('profesor'), async (req, res) => {
   const { alumnoId, estado } = req.body;
   await pool.query('INSERT INTO asistencias (id,alumnoId,estado,fecha) VALUES (?,?,?,?)', [nanoid(), alumnoId, estado, new Date()]);
   res.redirect('/asistencias');
