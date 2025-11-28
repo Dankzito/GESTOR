@@ -5,7 +5,7 @@
  */
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
-const { crypto } = require('crypto');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const pool = mysql.createPool({

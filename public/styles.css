@@ -109,15 +109,14 @@ body {
 }
 
 .sidebar .navbtn .nav-label {
-  opacity: 0;
+  display: none;
   white-space: nowrap;
-  transition: opacity 0.3s ease;
   font-size: 0.9rem;
   font-weight: 500;
 }
 
 .sidebar.expanded .navbtn .nav-label {
-  opacity: 1;
+  display: inline;
 }
 
 .sidebar .navbtn .nav-icon {
@@ -182,7 +181,8 @@ body {
 
 .sidebar .avatar {
   margin-top: auto;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
+  padding-top: 20px;
   width: 100%;
   display: flex;
   justify-content: center;

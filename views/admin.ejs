@@ -1,0 +1,59 @@
+<%- include('layout', { title: 'Panel de Administración' }) %>
+    <% active='admin' ; %>
+
+        <div class="card">
+            <h2>Panel de Administración</h2>
+            <p>Gestión de usuarios y roles</p>
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Rol Actual</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% users.forEach(u=> { %>
+                            <tr>
+                                <td>
+                                    <%= u.nombre %>
+                                </td>
+                                <td>
+                                    <%= u.email %>
+                                </td>
+                                <td><span class="badge role-<%= u.role %>">
+                                        <%= u.role %>
+                                    </span></td>
+                                <td>
+                                    <% if (u.email !==user.email) { %>
+                                        <div class="actions">
+                                            <form action="/admin/users/<%= u.id %>/role" method="POST"
+                                                style="display:inline;">
+                                                <select name="role" onchange="this.form.submit()">
+                                                    <option value="" disabled selected>Cambiar Rol</option>
+                                                    <option value="alumno">Alumno</option>
+                                                    <option value="profesor">Profesor</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </form>
+                                            <form action="/admin/users/<%= u.id %>/delete" method="POST"
+                                                style="display:inline;"
+                                                onsubmit="return confirm('¿Eliminar usuario?');">
+                                                <button type="submit" class="btn-danger sm">Eliminar</button>
+                                            </form>
+                                        </div>
+                                        <% } else { %>
+                                            <span class="text-muted">Tu cuenta</span>
+                                            <% } %>
+                                </td>
+                            </tr>
+                            <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <%- include('footer') %>

@@ -91,7 +91,7 @@
 </head>
 
 <body>
-  <% var active=active || '' ; %>
+  <% var active=typeof active !=='undefined' ? active : '' ; %>
 
     <div id="app" class="app-layout">
       <!-- Sidebar -->
@@ -117,20 +117,22 @@
               <span class="nav-icon">E</span>
               <span class="nav-label">Estudiantes</span>
             </a>
+            <a href="/calificaciones" class="navbtn <%= (path==='/calificaciones') ? 'active' : '' %>"
+              title="Calificaciones">
+              <span class="nav-icon">C</span>
+              <span class="nav-label">Calificaciones</span>
+            </a>
             <a href="/asistencias" class="navbtn <%= (path==='/asistencias') ? 'active' : '' %>" title="Asistencias">
               <span class="nav-icon">A</span>
               <span class="nav-label">Asistencias</span>
             </a>
-            <a href="/calificaciones" class="navbtn <%= (path==='/calificaciones') ? 'active' : '' %>" title="Calificaciones">
-              <span class="nav-icon">C</span>
-              <span class="nav-label">Calificaciones</span>
-            </a>
-            <% } else { %>
-              <button id="loginBtn" class="navbtn" title="Iniciar Sesión">
-                <span class="nav-icon">L</span>
-                <span class="nav-label">Login</span>
-              </button>
+            <% if (user.role==='admin' ) { %>
+              <a href="/admin" class="navbtn <%= (path==='/admin') ? 'active' : '' %>" title="Admin">
+                <span class="nav-icon">⚙</span>
+                <span class="nav-label">Admin</span>
+              </a>
               <% } %>
+                <% } %>
         </nav>
 
         <div class="avatar">
@@ -152,7 +154,7 @@
       </aside>
 
       <!-- Main -->
-      <main class="main">
+      <main class="main" id="main">
         <header class="header">
           <h1>
             <%= title || 'Inicio' %>

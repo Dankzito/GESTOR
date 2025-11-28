@@ -12,6 +12,9 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware para pasar usuario a todas las vistas
+
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
@@ -67,15 +70,38 @@ app.post('/register', async (req, res) => {
   const hashed = await bcrypt.hash(password, 10);
   const id = crypto.randomUUID();
   await pool.query('INSERT INTO users (id,nombre,email,password,role) VALUES (?,?,?,?,?)', [id, nombre, email, hashed, role || 'alumno']);
-  res.redirect('/');
+
+  // Auto login after register
+  req.session.user = { id, nombre, role: role || 'alumno', email };
+  res.redirect('/dashboard');
+});
+
+/* ---------- ADMIN PANEL ---------- */
+app.get('/admin', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  try {
+    const [users] = await pool.query('SELECT * FROM users ORDER BY created_at DESC');
+    res.render('admin', { users });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al cargar usuarios');
+  }
+});
+
+app.post('/admin/users/:id/role', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  const { role } = req.body;
+  await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+  res.redirect('/admin');
+});
+
+app.post('/admin/users/:id/delete', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
+  await pool.query('DELETE FROM users WHERE id = ?', [req.params.id]);
+  res.redirect('/admin');
 });
 
 /* ---------- PUBLIC / HOME ---------- */
 app.get('/', async (req, res) => {
-  // Si ya está logueado, podríamos redirigir o mostrar home con opciones
-  // El usuario pidió login modal en el menú, así que mostramos una home básica
   if (req.session.user) return res.redirect('/dashboard');
-  res.render('index', { title: 'Bienvenido' });
+  res.render('index', { title: 'Iniciar Sesión', error: null });
 });
 
 /* ---------- DASHBOARD & MODULES ---------- */
@@ -101,7 +127,7 @@ app.get('/estudiantes', ensureAuthenticated, async (req, res) => {
           // Si hay datos en alumnos, redirigir a actualizar DB
           console.log('Tabla alumnos encontrada, necesita actualización');
         }
-        
+
         // Crear tabla estudiantes
         await pool.query(`
           CREATE TABLE IF NOT EXISTS estudiantes (
@@ -113,8 +139,8 @@ app.get('/estudiantes', ensureAuthenticated, async (req, res) => {
         res.render('estudiantes', { estudiantes: [] });
       } catch (createErr) {
         console.error('Error al crear tabla estudiantes:', createErr);
-        res.status(500).render('error', { 
-          message: 'Error al inicializar la tabla de estudiantes. Por favor ejecuta: node update_db.js' 
+        res.status(500).render('error', {
+          message: 'Error al inicializar la tabla de estudiantes. Por favor ejecuta: node update_db.js'
         });
       }
     } else {
@@ -180,7 +206,7 @@ app.get('/calificaciones', ensureAuthenticated, async (req, res) => {
     res.status(500).send('Error al cargar calificaciones: ' + err.message);
   }
 });
-app.post('/calificaciones', ensureAuthenticated, ensureRole('maestro'), async (req, res) => {
+app.post('/calificaciones', ensureAuthenticated, ensureRole('profesor'), async (req, res) => {
   const { alumnoId, nota, comentario, profesorId } = req.body;
   // Fetch materia from profesor if not provided, or just use what's linked
   let materia = '';
@@ -193,7 +219,7 @@ app.post('/calificaciones', ensureAuthenticated, ensureRole('maestro'), async (r
     [nanoid(), alumnoId, Number(nota), comentario, new Date(), profesorId, materia]);
   res.redirect('/calificaciones');
 });
-app.post('/calificaciones/:id/edit', ensureAuthenticated, ensureRole('maestro'), async (req, res) => {
+app.post('/calificaciones/:id/edit', ensureAuthenticated, ensureRole('profesor'), async (req, res) => {
   const { nota, comentario } = req.body;
   await pool.query('UPDATE calificaciones SET nota = ?, comentario = ? WHERE id = ?', [Number(nota), comentario, req.params.id]);
   res.redirect('/calificaciones');
@@ -218,7 +244,7 @@ app.get('/asistencias', ensureAuthenticated, async (req, res) => {
     res.status(500).send('Error al cargar asistencias: ' + err.message);
   }
 });
-app.post('/asistencias', ensureAuthenticated, ensureRole('maestro'), async (req, res) => {
+app.post('/asistencias', ensureAuthenticated, ensureRole('profesor'), async (req, res) => {
   const { alumnoId, estado } = req.body;
   await pool.query('INSERT INTO asistencias (id,alumnoId,estado,fecha) VALUES (?,?,?,?)', [nanoid(), alumnoId, estado, new Date()]);
   res.redirect('/asistencias');
