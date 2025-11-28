@@ -2,7 +2,7 @@
   <div class="card">
     <h2>Gestor de Asistencias</h2>
 
-    <% if (user.role==='maestro' || user.role==='admin' ) { %>
+    <% if (user.role==='profesor' || user.role==='admin' ) { %>
       <form action="/asistencias" method="post" class="inline-form">
         <select name="alumnoId" required>
           <option value="" disabled selected>Seleccionar Estudiante</option>

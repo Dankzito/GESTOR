@@ -1,70 +1,73 @@
-<table class="tabla">
-    <thead>
-        <tr>
-            <th>Nombre</th>
-            <th>Email</th>
-            <th>Rol</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody>
-        <% users.forEach(u=> { %>
+<%- include('layout', { title: 'Panel de Administración' }) %>
+<div class="card">
+    <h2>Gestión de Usuarios</h2>
+
+    <table class="tabla">
+        <thead>
             <tr>
-                <td>
-                    <%= u.nombre %>
-                </td>
-                <td>
-                    <%= u.email %>
-                </td>
-                <td>
-                    <span class="badge role-<%= u.role %>">
-                        <%= u.role %>
-                    </span>
-                </td>
-                <td>
-                    <% if (u.role==='profesor' ) { %>
-                        <% if (u.validated) { %>
-                            <span class="badge badge-validated">✓ Validado</span>
-                            <% } else { %>
-                                <span class="badge badge-pending">⏳ Pendiente</span>
-                                <% } %>
-                                    <% } else { %>
-                                        <span class="text-muted">-</span>
-                                        <% } %>
-                </td>
-                <td>
-                    <% if (u.email !==user.email) { %>
-                        <div class="actions">
-                            <% if (u.role==='profesor' && !u.validated) { %>
-                                <form action="/admin/users/<%= u.id %>/validate" method="POST"
-                                    style="display:inline; margin-right: 5px;">
-                                    <button type="submit" class="btn btn-success-sm">Validar</button>
-                                </form>
-                                <% } %>
-                                    <form action="/admin/users/<%= u.id %>/role" method="POST"
-                                        style="display:inline; margin-right: 5px;">
-                                        <select name="role" onchange="this.form.submit()" class="select-sm">
-                                            <option value="" disabled selected>Cambiar Rol</option>
-                                            <option value="alumno">Alumno</option>
-                                            <option value="profesor">Profesor</option>
-                                            <option value="admin">Admin</option>
-                                        </select>
-                                    </form>
-                                    <form action="/admin/users/<%= u.id %>/delete" method="POST" style="display:inline;"
-                                        onsubmit="return confirm('¿Eliminar usuario?');">
-                                        <button type="submit" class="btn btn-danger-sm">Eliminar</button>
-                                    </form>
-                        </div>
-                        <% } else { %>
-                            <span class="text-muted">Tu cuenta</span>
-                            <% } %>
-                </td>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Acciones</th>
             </tr>
-            <% }); %>
-    </tbody>
-</table>
-</div>
+        </thead>
+        <tbody>
+            <% users.forEach(u=> { %>
+                <tr>
+                    <td>
+                        <%= u.nombre %>
+                    </td>
+                    <td>
+                        <%= u.email %>
+                    </td>
+                    <td>
+                        <span class="badge role-<%= u.role %>">
+                            <%= u.role %>
+                        </span>
+                    </td>
+                    <td>
+                        <% if (u.role==='profesor' ) { %>
+                            <% if (u.validated) { %>
+                                <span class="badge badge-validated">✓ Validado</span>
+                                <% } else { %>
+                                    <span class="badge badge-pending">⏳ Pendiente</span>
+                                    <% } %>
+                                        <% } else { %>
+                                            <span class="text-muted">-</span>
+                                            <% } %>
+                    </td>
+                    <td>
+                        <% if (u.email !==user.email) { %>
+                            <div class="actions">
+                                <% if (u.role==='profesor' && !u.validated) { %>
+                                    <form action="/admin/users/<%= u.id %>/validate" method="POST"
+                                        style="display:inline; margin-right: 5px;">
+                                        <button type="submit" class="btn btn-success-sm">Validar</button>
+                                    </form>
+                                    <% } %>
+                                        <form action="/admin/users/<%= u.id %>/role" method="POST"
+                                            style="display:inline; margin-right: 5px;">
+                                            <select name="role" onchange="this.form.submit()" class="select-sm">
+                                                <option value="" disabled selected>Cambiar Rol</option>
+                                                <option value="alumno">Alumno</option>
+                                                <option value="profesor">Profesor</option>
+                                                <option value="admin">Admin</option>
+                                            </select>
+                                        </form>
+                                        <form action="/admin/users/<%= u.id %>/delete" method="POST" style="display:inline;"
+                                            onsubmit="return confirm('¿Eliminar usuario?');">
+                                            <button type="submit" class="btn btn-danger-sm">Eliminar</button>
+                                        </form>
+                            </div>
+                            <% } else { %>
+                                <span class="text-muted">Tu cuenta</span>
+                                <% } %>
+                    </td>
+                </tr>
+                <% }); %>
+        </tbody>
+    </table>
 </div>
 
 <style>

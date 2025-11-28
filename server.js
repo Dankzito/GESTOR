@@ -290,15 +290,50 @@ app.get('/calificaciones', ensureAuthenticated, async (req, res) => {
 });
 app.post('/calificaciones', ensureAuthenticated, ensureValidated, ensureRole('profesor'), async (req, res) => {
   const { alumnoId, nota, comentario, profesorId } = req.body;
-  // Fetch materia from profesor if not provided, or just use what's linked
+  const user = req.session.user;
+  
+  // Si es profesor, buscar su ID en la tabla profesores por nombre
+  let finalProfesorId = profesorId;
   let materia = '';
-  if (profesorId) {
+  
+  if (user.role === 'profesor') {
+    // Para profesores, buscar su ID en la tabla profesores por nombre
+    if (!profesorId || profesorId === '') {
+      let [pRows] = await pool.query('SELECT id, materia FROM profesores WHERE nombre = ?', [user.nombre]);
+      if (pRows.length) {
+        finalProfesorId = pRows[0].id;
+        materia = pRows[0].materia || '';
+      } else {
+        // Si no existe el registro, crearlo automáticamente
+        const nuevoProfesorId = nanoid();
+        await pool.query('INSERT INTO profesores (id, nombre, materia) VALUES (?, ?, ?)', 
+          [nuevoProfesorId, user.nombre, '']);
+        finalProfesorId = nuevoProfesorId;
+        materia = '';
+      }
+    } else {
+      // Si proporcionó un profesorId, usarlo (por si seleccionó de la lista)
+      const [pRows] = await pool.query('SELECT materia FROM profesores WHERE id = ?', [profesorId]);
+      if (pRows.length) {
+        materia = pRows[0].materia || '';
+      } else {
+        return res.status(400).send('El profesor seleccionado no existe.');
+      }
+    }
+  } else if (user.role === 'admin' && profesorId) {
+    // Para admin, debe proporcionar un profesorId
     const [pRows] = await pool.query('SELECT materia FROM profesores WHERE id = ?', [profesorId]);
-    if (pRows.length) materia = pRows[0].materia;
+    if (pRows.length) {
+      materia = pRows[0].materia || '';
+    } else {
+      return res.status(400).send('El profesor seleccionado no existe.');
+    }
+  } else if (user.role === 'admin' && !profesorId) {
+    return res.status(400).send('Debe seleccionar un profesor');
   }
 
   await pool.query('INSERT INTO calificaciones (id,alumnoId,nota,comentario,fecha,profesorId,materia) VALUES (?,?,?,?,?,?,?)',
-    [nanoid(), alumnoId, Number(nota), comentario, new Date(), profesorId, materia]);
+    [nanoid(), alumnoId, Number(nota), comentario, new Date(), finalProfesorId, materia]);
   res.redirect('/calificaciones');
 });
 app.post('/calificaciones/:id/edit', ensureAuthenticated, ensureValidated, ensureRole('profesor'), async (req, res) => {
