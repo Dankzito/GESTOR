@@ -325,34 +325,33 @@ app.get('/estudiantes', ensureAuthenticated, async (req, res) => {
     if (user.role === 'profesor') {
       // Profesores solo ven estudiantes del mismo año que sus materias
       try {
-        // Obtener los años (ano) de las materias que tiene el profesor
-        // Intentar usar ano, si no existe usar descripcion
-        let [materiasProfesor] = await pool.query(`
-          SELECT DISTINCT m.ano 
-          FROM materias m
-          INNER JOIN users u ON m.id = u.materiaId
-          WHERE u.id = ? AND u.role = 'profesor' AND m.ano IS NOT NULL
-        `, [user.id]).catch(() => {
-          // Si falla, intentar con descripcion
-          return pool.query(`
-            SELECT DISTINCT m.descripcion as ano 
-            FROM materias m
-            INNER JOIN users u ON m.id = u.materiaId
-            WHERE u.id = ? AND u.role = 'profesor' AND m.descripcion IS NOT NULL
-          `, [user.id]);
-        });
+        // Obtener la materia del profesor desde users.materiaId
+        const [userData] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [user.id, 'profesor']);
         
-        const anos = materiasProfesor.map(m => m.ano || m.descripcion).filter(a => a);
-        
-        if (anos.length > 0) {
-          const placeholders = anos.map(() => '?').join(',');
-          const [estudiantesResult] = await pool.query(`
-            SELECT u.id, u.nombre, u.email, u.validated, u.cursoId as curso_nombre, u.created_at
-            FROM users u
-            WHERE u.role = 'alumno' AND u.validated = TRUE AND u.cursoId IN (${placeholders})
-            ORDER BY u.nombre ASC
-          `, anos);
-          estudiantes = estudiantesResult || [];
+        if (userData.length > 0 && userData[0].materiaId) {
+          // Obtener el año de la materia
+          let [materiaData] = await pool.query('SELECT ano, descripcion FROM materias WHERE id = ?', [userData[0].materiaId]).catch(() => {
+            return pool.query('SELECT descripcion as ano FROM materias WHERE id = ?', [userData[0].materiaId]);
+          });
+          
+          if (materiaData.length > 0) {
+            const anoMateria = materiaData[0].ano || materiaData[0].descripcion;
+            
+            if (anoMateria) {
+              // Buscar estudiantes del mismo año
+              const [estudiantesResult] = await pool.query(`
+                SELECT u.id, u.nombre, u.email, u.validated, u.cursoId as curso_nombre, u.created_at
+                FROM users u
+                WHERE u.role = 'alumno' AND u.validated = TRUE AND u.cursoId = ?
+                ORDER BY u.nombre ASC
+              `, [anoMateria]);
+              estudiantes = estudiantesResult || [];
+            } else {
+              estudiantes = [];
+            }
+          } else {
+            estudiantes = [];
+          }
         } else {
           estudiantes = [];
         }
@@ -501,45 +500,49 @@ app.get('/calificaciones', ensureAuthenticated, async (req, res) => {
     } else if (user.role === 'profesor') {
       // Profesores ven solo calificaciones de sus alumnos (mismo año)
       try {
-        // Obtener los años (ano) de las materias que tiene el profesor
-        // Intentar usar ano, si no existe usar descripcion
-        let [materiasProfesor] = await pool.query(`
-          SELECT DISTINCT m.ano 
-          FROM materias m
-          INNER JOIN users u ON m.id = u.materiaId
-          WHERE u.id = ? AND u.role = 'profesor' AND m.ano IS NOT NULL
-        `, [user.id]).catch(() => {
-          // Si falla, intentar con descripcion
-          return pool.query(`
-            SELECT DISTINCT m.descripcion as ano 
-            FROM materias m
-            INNER JOIN users u ON m.id = u.materiaId
-            WHERE u.id = ? AND u.role = 'profesor' AND m.descripcion IS NOT NULL
-          `, [user.id]);
-        });
+        // Obtener la materia del profesor desde users.materiaId
+        const [userData] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [user.id, 'profesor']);
         
-        const anos = materiasProfesor.map(m => m.ano || m.descripcion).filter(a => a);
-        
-        if (anos.length > 0) {
-          const placeholders = anos.map(() => '?').join(',');
-          const [calificacionesResult] = await pool.query(`
-            SELECT c.*, u.nombre as estudiante_nombre, p.nombre as profesor_nombre
-            FROM calificaciones c 
-            LEFT JOIN users u ON c.alumnoId = u.id
-            LEFT JOIN profesores p ON c.profesorId = p.id
-            WHERE u.cursoId IN (${placeholders})
-            ORDER BY c.fecha DESC
-          `, anos);
-          calificaciones = calificacionesResult || [];
+        if (userData.length > 0 && userData[0].materiaId) {
+          // Obtener el año de la materia
+          let [materiaData] = await pool.query('SELECT ano, descripcion FROM materias WHERE id = ?', [userData[0].materiaId]).catch(() => {
+            return pool.query('SELECT descripcion as ano FROM materias WHERE id = ?', [userData[0].materiaId]);
+          });
+          
+          if (materiaData.length > 0) {
+            const anoMateria = materiaData[0].ano || materiaData[0].descripcion;
+            
+            if (anoMateria) {
+              // Obtener calificaciones de estudiantes del mismo año
+              const [calificacionesResult] = await pool.query(`
+                SELECT c.*, u.nombre as estudiante_nombre, p.nombre as profesor_nombre
+                FROM calificaciones c 
+                LEFT JOIN users u ON c.alumnoId = u.id
+                LEFT JOIN profesores p ON c.profesorId = p.id
+                WHERE u.cursoId = ?
+                ORDER BY c.fecha DESC
+              `, [anoMateria]);
+              calificaciones = calificacionesResult || [];
 
-          // Obtener estudiantes del mismo año
-          const [estudiantesResult] = await pool.query(`
-            SELECT id, nombre, email 
-            FROM users 
-            WHERE role = 'alumno' AND validated = TRUE AND cursoId IN (${placeholders})
-            ORDER BY nombre ASC
-          `, anos);
-          estudiantes = estudiantesResult || [];
+              // Obtener estudiantes del mismo año
+              const [estudiantesResult] = await pool.query(`
+                SELECT id, nombre, email 
+                FROM users 
+                WHERE role = 'alumno' AND validated = TRUE AND cursoId = ?
+                ORDER BY nombre ASC
+              `, [anoMateria]);
+              estudiantes = estudiantesResult || [];
+            } else {
+              calificaciones = [];
+              estudiantes = [];
+            }
+          } else {
+            calificaciones = [];
+            estudiantes = [];
+          }
+        } else {
+          calificaciones = [];
+          estudiantes = [];
         }
       } catch (err) {
         console.error('Error al obtener materias del profesor:', err);
@@ -596,31 +599,30 @@ app.post('/calificaciones', ensureAuthenticated, ensureValidated, ensureRole('pr
     return res.status(400).send('Estudiante no válido o no validado');
   }
   
-  // Si es profesor, verificar que el alumno esté en el mismo año que sus materias
+  // Si es profesor, verificar que el alumno esté en el mismo año que su materia
   if (user.role === 'profesor') {
     try {
-      // Obtener los años (ano) de las materias del profesor
-      // Intentar usar ano, si no existe usar descripcion
-      let [materiasProfesor] = await pool.query(`
-        SELECT DISTINCT m.ano 
-        FROM materias m
-        INNER JOIN users u ON m.id = u.materiaId
-        WHERE u.id = ? AND u.role = 'profesor' AND m.ano IS NOT NULL
-      `, [user.id]).catch(() => {
-        // Si falla, intentar con descripcion
-        return pool.query(`
-          SELECT DISTINCT m.descripcion as ano 
-          FROM materias m
-          INNER JOIN users u ON m.id = u.materiaId
-          WHERE u.id = ? AND u.role = 'profesor' AND m.descripcion IS NOT NULL
-        `, [user.id]);
-      });
+      // Obtener la materia del profesor
+      const [userData] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [user.id, 'profesor']);
       
-      const anosProfesor = materiasProfesor.map(m => m.ano || m.descripcion).filter(a => a);
-      
-      // Verificar que el alumno esté en uno de esos años
-      if (anosProfesor.length === 0 || !alumno[0].cursoId || !anosProfesor.includes(alumno[0].cursoId)) {
-        return res.status(403).send('No puedes calificar a este estudiante. Debe estar en un año donde tengas una materia asignada.');
+      if (userData.length > 0 && userData[0].materiaId) {
+        // Obtener el año de la materia
+        let [materiaData] = await pool.query('SELECT ano, descripcion FROM materias WHERE id = ?', [userData[0].materiaId]).catch(() => {
+          return pool.query('SELECT descripcion as ano FROM materias WHERE id = ?', [userData[0].materiaId]);
+        });
+        
+        if (materiaData.length > 0) {
+          const anoMateria = materiaData[0].ano || materiaData[0].descripcion;
+          
+          // Verificar que el alumno esté en el mismo año
+          if (!anoMateria || !alumno[0].cursoId || alumno[0].cursoId !== anoMateria) {
+            return res.status(403).send('No puedes calificar a este estudiante. Debe estar en el año ' + anoMateria + ' donde tienes una materia asignada.');
+          }
+        } else {
+          return res.status(403).send('No tienes una materia asignada. Contacta al administrador.');
+        }
+      } else {
+        return res.status(403).send('No tienes una materia asignada. Contacta al administrador.');
       }
     } catch (err) {
       console.error('Error al validar materia del profesor:', err);
@@ -706,44 +708,48 @@ app.get('/asistencias', ensureAuthenticated, async (req, res) => {
     } else if (user.role === 'profesor') {
       // Profesores ven solo asistencias de estudiantes de sus años
       try {
-        // Obtener los años (ano) de las materias que tiene el profesor
-        // Intentar usar ano, si no existe usar descripcion
-        let [materiasProfesor] = await pool.query(`
-          SELECT DISTINCT m.ano 
-          FROM materias m
-          INNER JOIN users u ON m.id = u.materiaId
-          WHERE u.id = ? AND u.role = 'profesor' AND m.ano IS NOT NULL
-        `, [user.id]).catch(() => {
-          // Si falla, intentar con descripcion
-          return pool.query(`
-            SELECT DISTINCT m.descripcion as ano 
-            FROM materias m
-            INNER JOIN users u ON m.id = u.materiaId
-            WHERE u.id = ? AND u.role = 'profesor' AND m.descripcion IS NOT NULL
-          `, [user.id]);
-        });
+        // Obtener la materia del profesor desde users.materiaId
+        const [userData] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [user.id, 'profesor']);
         
-        const anos = materiasProfesor.map(m => m.ano || m.descripcion).filter(a => a);
-        
-        if (anos.length > 0) {
-          const placeholders = anos.map(() => '?').join(',');
-          const [asistenciasResult] = await pool.query(`
-            SELECT DISTINCT a.*, u.nombre as estudiante_nombre 
-            FROM asistencias a 
-            LEFT JOIN users u ON a.alumnoId = u.id
-            WHERE u.cursoId IN (${placeholders})
-            ORDER BY a.fecha DESC
-          `, anos);
-          asistencias = asistenciasResult || [];
+        if (userData.length > 0 && userData[0].materiaId) {
+          // Obtener el año de la materia
+          let [materiaData] = await pool.query('SELECT ano, descripcion FROM materias WHERE id = ?', [userData[0].materiaId]).catch(() => {
+            return pool.query('SELECT descripcion as ano FROM materias WHERE id = ?', [userData[0].materiaId]);
+          });
           
-          // Obtener estudiantes del mismo año
-          const [estudiantesResult] = await pool.query(`
-            SELECT id, nombre, email 
-            FROM users 
-            WHERE role = 'alumno' AND validated = TRUE AND cursoId IN (${placeholders})
-            ORDER BY nombre ASC
-          `, anos);
-          estudiantes = estudiantesResult || [];
+          if (materiaData.length > 0) {
+            const anoMateria = materiaData[0].ano || materiaData[0].descripcion;
+            
+            if (anoMateria) {
+              // Obtener asistencias de estudiantes del mismo año
+              const [asistenciasResult] = await pool.query(`
+                SELECT DISTINCT a.*, u.nombre as estudiante_nombre 
+                FROM asistencias a 
+                LEFT JOIN users u ON a.alumnoId = u.id
+                WHERE u.cursoId = ?
+                ORDER BY a.fecha DESC
+              `, [anoMateria]);
+              asistencias = asistenciasResult || [];
+              
+              // Obtener estudiantes del mismo año
+              const [estudiantesResult] = await pool.query(`
+                SELECT id, nombre, email 
+                FROM users 
+                WHERE role = 'alumno' AND validated = TRUE AND cursoId = ?
+                ORDER BY nombre ASC
+              `, [anoMateria]);
+              estudiantes = estudiantesResult || [];
+            } else {
+              asistencias = [];
+              estudiantes = [];
+            }
+          } else {
+            asistencias = [];
+            estudiantes = [];
+          }
+        } else {
+          asistencias = [];
+          estudiantes = [];
         }
       } catch (err) {
         console.error('Error al obtener materias del profesor:', err);
@@ -787,31 +793,30 @@ app.post('/asistencias', ensureAuthenticated, ensureValidated, ensureRole('profe
     return res.status(400).send('Estudiante no válido o no validado');
   }
   
-  // Si es profesor, verificar que el alumno esté en el mismo año que sus materias
+  // Si es profesor, verificar que el alumno esté en el mismo año que su materia
   if (user.role === 'profesor') {
     try {
-      // Obtener los años (ano) de las materias del profesor
-      // Intentar usar ano, si no existe usar descripcion
-      let [materiasProfesor] = await pool.query(`
-        SELECT DISTINCT m.ano 
-        FROM materias m
-        INNER JOIN users u ON m.id = u.materiaId
-        WHERE u.id = ? AND u.role = 'profesor' AND m.ano IS NOT NULL
-      `, [user.id]).catch(() => {
-        // Si falla, intentar con descripcion
-        return pool.query(`
-          SELECT DISTINCT m.descripcion as ano 
-          FROM materias m
-          INNER JOIN users u ON m.id = u.materiaId
-          WHERE u.id = ? AND u.role = 'profesor' AND m.descripcion IS NOT NULL
-        `, [user.id]);
-      });
+      // Obtener la materia del profesor
+      const [userData] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [user.id, 'profesor']);
       
-      const anosProfesor = materiasProfesor.map(m => m.ano || m.descripcion).filter(a => a);
-      
-      // Verificar que el alumno esté en uno de esos años
-      if (anosProfesor.length === 0 || !alumno[0].cursoId || !anosProfesor.includes(alumno[0].cursoId)) {
-        return res.status(403).send('No puedes registrar asistencia de este estudiante. Debe estar en un año donde tengas una materia asignada.');
+      if (userData.length > 0 && userData[0].materiaId) {
+        // Obtener el año de la materia
+        let [materiaData] = await pool.query('SELECT ano, descripcion FROM materias WHERE id = ?', [userData[0].materiaId]).catch(() => {
+          return pool.query('SELECT descripcion as ano FROM materias WHERE id = ?', [userData[0].materiaId]);
+        });
+        
+        if (materiaData.length > 0) {
+          const anoMateria = materiaData[0].ano || materiaData[0].descripcion;
+          
+          // Verificar que el alumno esté en el mismo año
+          if (!anoMateria || !alumno[0].cursoId || alumno[0].cursoId !== anoMateria) {
+            return res.status(403).send('No puedes registrar asistencia de este estudiante. Debe estar en el año ' + anoMateria + ' donde tienes una materia asignada.');
+          }
+        } else {
+          return res.status(403).send('No tienes una materia asignada. Contacta al administrador.');
+        }
+      } else {
+        return res.status(403).send('No tienes una materia asignada. Contacta al administrador.');
       }
     } catch (err) {
       console.error('Error al validar materia del profesor:', err);
