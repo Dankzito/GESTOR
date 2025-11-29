@@ -2,7 +2,7 @@
 <div class="card">
     <h2>Gestor de Estudiantes</h2>
     <p style="color: #7f8c8d; margin-bottom: 20px;">
-      Los estudiantes se registran automáticamente cuando crean una cuenta. El administrador debe validarlos y asignarles un curso desde el panel de administración.
+      Lista de estudiantes registrados en el sistema. El administrador puede validarlos y asignarles un curso desde el panel de administración.
     </p>
 
     <% if (estudiantes && estudiantes.length > 0) { %>
@@ -10,7 +10,9 @@
             <thead>
                 <tr>
                     <th>Nombre</th>
-                    <th>DNI</th>
+                    <th>Email</th>
+                    <th>Curso</th>
+                    <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -18,13 +20,24 @@
                 <% estudiantes.forEach(e => { %>
                     <tr>
                         <td><%= e.nombre %></td>
-                        <td><%= e.dni || '-' %></td>
+                        <td><%= e.email %></td>
                         <td>
-                            <a href="/estudiantes/<%= e.id %>/historial" class="link-btn">Ver Historial</a>
+                          <% if (e.curso_nombre) { %>
+                            <span style="color: #2980b9; font-weight: 600;"><%= e.curso_nombre %></span>
+                          <% } else { %>
+                            <span style="color: #95a5a6;">Sin curso asignado</span>
+                          <% } %>
+                        </td>
+                        <td>
+                          <% if (e.validated) { %>
+                            <span class="badge badge-validated">✓ Validado</span>
+                          <% } else { %>
+                            <span class="badge badge-pending">⏳ Pendiente</span>
+                          <% } %>
+                        </td>
+                        <td>
                             <% if (user && user.role === 'admin') { %>
-                                <form style="display:inline" action="/estudiantes/<%= e.id %>/delete" method="post">
-                                    <button type="submit" class="link-btn">Eliminar</button>
-                                </form>
+                                <a href="/admin" class="link-btn">Gestionar</a>
                             <% } %>
                         </td>
                     </tr>
@@ -34,10 +47,28 @@
     <% } else { %>
         <div style="text-align: center; padding: 40px; color: #7f8c8d;">
             <p style="font-size: 1.1rem;">No hay estudiantes registrados aún.</p>
-            <% if (user && user.role === 'admin') { %>
-                <p style="margin-top: 10px; font-size: 0.9rem;">Usa el formulario de arriba para agregar uno.</p>
-            <% } %>
         </div>
     <% } %>
 </div>
+
+<style>
+    .badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-validated {
+        background: rgba(46, 204, 113, 0.2);
+        color: #27ae60;
+        border: 1px solid #27ae60;
+    }
+    .badge-pending {
+        background: rgba(243, 156, 18, 0.2);
+        color: #f39c12;
+        border: 1px solid #f39c12;
+    }
+</style>
+
 <%- include('footer') %>

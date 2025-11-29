@@ -109,14 +109,18 @@
               <span class="nav-icon">D</span>
               <span class="nav-label">Dashboard</span>
             </a>
-            <a href="/profesores" class="navbtn <%= (path==='/profesores') ? 'active' : '' %>" title="Profesores">
-              <span class="nav-icon">P</span>
-              <span class="nav-label">Profesores</span>
-            </a>
-            <a href="/estudiantes" class="navbtn <%= (path==='/estudiantes') ? 'active' : '' %>" title="Estudiantes">
-              <span class="nav-icon">E</span>
-              <span class="nav-label">Estudiantes</span>
-            </a>
+            <% if (user.role === 'admin') { %>
+              <a href="/profesores" class="navbtn <%= (path==='/profesores') ? 'active' : '' %>" title="Profesores">
+                <span class="nav-icon">P</span>
+                <span class="nav-label">Profesores</span>
+              </a>
+            <% } %>
+            <% if (user.role === 'admin' || user.role === 'profesor') { %>
+              <a href="/estudiantes" class="navbtn <%= (path==='/estudiantes') ? 'active' : '' %>" title="Estudiantes">
+                <span class="nav-icon">E</span>
+                <span class="nav-label">Estudiantes</span>
+              </a>
+            <% } %>
             <a href="/calificaciones" class="navbtn <%= (path==='/calificaciones') ? 'active' : '' %>"
               title="Calificaciones">
               <span class="nav-icon">C</span>
@@ -130,10 +134,6 @@
               <a href="/materias" class="navbtn <%= (path==='/materias') ? 'active' : '' %>" title="Materias">
                 <span class="nav-icon">M</span>
                 <span class="nav-label">Materias</span>
-              </a>
-              <a href="/cursos" class="navbtn <%= (path==='/cursos') ? 'active' : '' %>" title="Cursos">
-                <span class="nav-icon">📚</span>
-                <span class="nav-label">Cursos</span>
               </a>
               <a href="/admin" class="navbtn <%= (path==='/admin') ? 'active' : '' %>" title="Admin">
                 <span class="nav-icon">⚙</span>

@@ -3,47 +3,103 @@
     <h2>Gestor de Asistencias</h2>
 
     <% if (user.role==='profesor' || user.role==='admin' ) { %>
-      <form action="/asistencias" method="post" class="inline-form">
-        <select name="alumnoId" required>
-          <option value="" disabled selected>Seleccionar Estudiante</option>
-          <% estudiantes.forEach(e=> { %>
-            <option value="<%= e.id %>">
-              <%= e.nombre %>
-            </option>
+      <% if (estudiantes && estudiantes.length > 0) { %>
+        <form action="/asistencias" method="post" class="inline-form">
+          <select name="alumnoId" required>
+            <option value="" disabled selected>Seleccionar Estudiante</option>
+            <% estudiantes.forEach(e=> { %>
+              <option value="<%= e.id %>">
+                <%= e.nombre %>
+              </option>
             <% }) %>
-        </select>
-        <select name="estado" required>
-          <option value="presente">Presente</option>
-          <option value="ausente">Ausente</option>
-          <option value="tardanza">Tardanza</option>
-        </select>
-        <button class="btn">Registrar</button>
-      </form>
+          </select>
+          <select name="estado" required>
+            <option value="presente">Presente</option>
+            <option value="ausente">Ausente</option>
+            <option value="tardanza">Tardanza</option>
+          </select>
+          <button class="btn">Registrar</button>
+        </form>
+      <% } else { %>
+        <% if (user.role==='profesor') { %>
+          <p style="color: #7f8c8d; margin-bottom: 20px;">
+            No hay estudiantes disponibles para registrar asistencia. Asegúrate de tener materias asignadas con años correspondientes.
+          </p>
+        <% } else { %>
+          <p style="color: #7f8c8d; margin-bottom: 20px;">
+            No hay estudiantes disponibles.
+          </p>
+        <% } %>
       <% } %>
+    <% } else if (user.role==='alumno') { %>
+      <p style="color: #7f8c8d; margin-bottom: 20px;">
+        Aquí puedes ver tu historial de asistencias.
+      </p>
+    <% } %>
 
-        <table class="tabla">
-          <thead>
+    <% if (asistencias && asistencias.length > 0) { %>
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Estudiante</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% asistencias.forEach(a=> { %>
             <tr>
-              <th>Estudiante</th>
-              <th>Estado</th>
-              <th>Fecha</th>
+              <td>
+                <%= a.estudiante_nombre || '—' %>
+              </td>
+              <td>
+                <span class="badge badge-<%= a.estado === 'presente' ? 'success' : a.estado === 'ausente' ? 'danger' : 'warning' %>">
+                  <%= a.estado.charAt(0).toUpperCase() + a.estado.slice(1) %>
+                </span>
+              </td>
+              <td>
+                <%= new Date(a.fecha).toLocaleString('es-ES', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) %>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            <% asistencias.forEach(a=> { %>
-              <tr>
-                <td>
-                  <%= a.estudiante_nombre || '—' %>
-                </td>
-                <td>
-                  <%= a.estado %>
-                </td>
-                <td>
-                  <%= new Date(a.fecha).toLocaleString() %>
-                </td>
-              </tr>
-              <% }) %>
-          </tbody>
-        </table>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } else { %>
+      <div style="text-align: center; padding: 40px; color: #7f8c8d;">
+        <p style="font-size: 1.1rem;">No hay asistencias registradas aún.</p>
+      </div>
+    <% } %>
   </div>
+
+  <style>
+    .badge {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+    .badge-success {
+      background: rgba(46, 204, 113, 0.2);
+      color: #27ae60;
+      border: 1px solid #27ae60;
+    }
+    .badge-danger {
+      background: rgba(231, 76, 60, 0.2);
+      color: #e74c3c;
+      border: 1px solid #e74c3c;
+    }
+    .badge-warning {
+      background: rgba(243, 156, 18, 0.2);
+      color: #f39c12;
+      border: 1px solid #f39c12;
+    }
+  </style>
+
   <%- include('footer') %>

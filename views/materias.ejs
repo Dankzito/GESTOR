@@ -5,7 +5,16 @@
     <% if (user && user.role === 'admin') { %>
         <form action="/materias" method="post" class="inline-form">
             <input name="nombre" placeholder="Nombre de la materia" required />
-            <input name="descripcion" placeholder="Descripción (opcional)" />
+            <select name="ano" required style="min-width: 150px;">
+                <option value="" disabled selected>Seleccionar Año</option>
+                <option value="1°">1°</option>
+                <option value="2°">2°</option>
+                <option value="3°">3°</option>
+                <option value="4°">4°</option>
+                <option value="5°">5°</option>
+                <option value="6°">6°</option>
+                <option value="7°">7°</option>
+            </select>
             <button class="btn">Agregar materia</button>
         </form>
     <% } %>
@@ -15,7 +24,7 @@
             <thead>
                 <tr>
                     <th>Nombre</th>
-                    <th>Descripción</th>
+                    <th>Año</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -23,12 +32,20 @@
                 <% materias.forEach(m => { %>
                     <tr>
                         <td><%= m.nombre %></td>
-                        <td><%= m.descripcion || '-' %></td>
+                        <td><%= m.ano || m.descripcion || '-' %></td>
                         <td>
                             <% if (user && user.role === 'admin') { %>
                                 <form style="display:inline" method="post" action="/materias/<%= m.id %>/edit" class="edit-form">
                                     <input name="nombre" value="<%= m.nombre %>" style="width:150px; display:inline-block;" required />
-                                    <input name="descripcion" value="<%= m.descripcion || '' %>" style="width:200px; display:inline-block;" />
+                                    <select name="ano" required style="width:100px; display:inline-block;">
+                                        <option value="1°" <%= (m.ano || m.descripcion) === '1°' ? 'selected' : '' %>>1°</option>
+                                        <option value="2°" <%= (m.ano || m.descripcion) === '2°' ? 'selected' : '' %>>2°</option>
+                                        <option value="3°" <%= (m.ano || m.descripcion) === '3°' ? 'selected' : '' %>>3°</option>
+                                        <option value="4°" <%= (m.ano || m.descripcion) === '4°' ? 'selected' : '' %>>4°</option>
+                                        <option value="5°" <%= (m.ano || m.descripcion) === '5°' ? 'selected' : '' %>>5°</option>
+                                        <option value="6°" <%= (m.ano || m.descripcion) === '6°' ? 'selected' : '' %>>6°</option>
+                                        <option value="7°" <%= (m.ano || m.descripcion) === '7°' ? 'selected' : '' %>>7°</option>
+                                    </select>
                                     <button type="submit" class="link-btn">Actualizar</button>
                                 </form>
                                 <form style="display:inline" action="/materias/<%= m.id %>/delete" method="post" onsubmit="return confirm('¿Eliminar esta materia?');">

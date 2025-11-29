@@ -54,34 +54,26 @@
                     <td>
                         <% if (u.email !== user.email) { %>
                             <div class="actions">
-                                <!-- Validar y asignar curso a alumno -->
+                                <!-- Validar alumno -->
                                 <% if (u.role === 'alumno' && !u.validated) { %>
                                     <form action="/admin/users/<%= u.id %>/validate" method="POST" style="display:inline; margin-right: 5px;">
-                                        <select name="cursoId" required class="select-sm" style="margin-right: 5px;">
-                                            <option value="" disabled selected>Seleccionar Curso</option>
-                                            <% if (typeof cursos !== 'undefined' && cursos.length > 0) { %>
-                                                <% cursos.forEach(c => { %>
-                                                    <option value="<%= c.id %>"><%= c.nombre %></option>
-                                                <% }) %>
-                                            <% } else { %>
-                                                <option value="" disabled>No hay cursos disponibles</option>
-                                            <% } %>
-                                        </select>
-                                        <button type="submit" class="btn btn-success-sm">Validar y Asignar Curso</button>
+                                        <button type="submit" class="btn btn-success-sm">Validar</button>
                                     </form>
                                 <% } %>
                                 
-                                <!-- Asignar curso a alumno validado -->
-                                <% if (u.role === 'alumno' && u.validated) { %>
+                                <!-- Asignar año a alumno -->
+                                <% if (u.role === 'alumno') { %>
                                     <form action="/admin/users/<%= u.id %>/assign-curso" method="POST" style="display:inline; margin-right: 5px;">
                                         <select name="cursoId" class="select-sm" style="margin-right: 5px;" onchange="this.form.submit()">
-                                            <option value="" disabled <%= !u.cursoId ? 'selected' : '' %>>Cambiar Curso</option>
-                                            <% if (typeof cursos !== 'undefined' && cursos.length > 0) { %>
-                                                <% cursos.forEach(c => { %>
-                                                    <option value="<%= c.id %>" <%= u.cursoId === c.id ? 'selected' : '' %>><%= c.nombre %></option>
-                                                <% }) %>
-                                            <% } %>
-                                            <option value="">Sin curso</option>
+                                            <option value="" disabled <%= !u.cursoId ? 'selected' : '' %>>Seleccionar Año</option>
+                                            <option value="1°" <%= u.cursoId === '1°' ? 'selected' : '' %>>1°</option>
+                                            <option value="2°" <%= u.cursoId === '2°' ? 'selected' : '' %>>2°</option>
+                                            <option value="3°" <%= u.cursoId === '3°' ? 'selected' : '' %>>3°</option>
+                                            <option value="4°" <%= u.cursoId === '4°' ? 'selected' : '' %>>4°</option>
+                                            <option value="5°" <%= u.cursoId === '5°' ? 'selected' : '' %>>5°</option>
+                                            <option value="6°" <%= u.cursoId === '6°' ? 'selected' : '' %>>6°</option>
+                                            <option value="7°" <%= u.cursoId === '7°' ? 'selected' : '' %>>7°</option>
+                                            <option value="">Sin año</option>
                                         </select>
                                     </form>
                                 <% } %>
