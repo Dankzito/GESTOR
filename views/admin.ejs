@@ -85,7 +85,7 @@
                                         <% } %>
                         </td>
                         <td>
-                            <% if (u.role==='profesor' ) { %>
+                            <% if (u.role==='profesor' || u.role==='alumno' ) { %>
                                 <% if (u.validated) { %>
                                     <span class="badge badge-validated">✓ Validado</span>
                                     <% } else { %>
@@ -98,7 +98,7 @@
                         <td>
                             <% if (u.email !==user.email) { %>
                                 <div class="actions">
-                                    <% if (u.role==='profesor' && !u.validated) { %>
+                                    <% if ((u.role==='profesor' || u.role==='alumno' ) && !u.validated) { %>
                                         <form action="/admin/users/<%= u.id %>/validate" method="POST"
                                             style="display:inline; margin-right: 5px;">
                                             <button type="submit" class="btn btn-success-sm">Validar</button>

@@ -20,16 +20,63 @@ const pool = mysql.createPool({
 });
 
 async function initDB() {
-  // Se asume que el script sql/create_db.sql ya fue ejecutado. Si no, intentar crear tables mínimos.
-  // Comprobar si hay usuarios; si no existe admin crear uno.
-  const [rows] = await pool.query('SELECT COUNT(*) as cnt FROM users');
-  if (rows && rows[0] && rows[0].cnt === 0) {
-    const hashed = await bcrypt.hash('admin123', 10);
-    const id = 'admin-1';
-    await pool.query('INSERT INTO users (id,nombre,email,password,role) VALUES (?,?,?,?,?)', [id, 'Administrador', 'admin@local', hashed, 'admin']);
-    console.log('Admin creado por defecto: admin@local / admin123');
-  } else {
-    console.log('Usuarios detectados en la DB.');
+  try {
+    // Crear tabla users si no existe
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(255) PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role ENUM('alumno','profesor','admin') DEFAULT 'alumno',
+        validated BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Agregar columna dni si no existe
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN dni VARCHAR(50) NULL`);
+      console.log('Columna dni agregada a la tabla users');
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.log('Columna dni ya existe');
+      }
+    }
+
+    // Agregar columnas materiaId y cursoId si no existen
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN materiaId VARCHAR(255) NULL`);
+      console.log('Columna materiaId agregada');
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.log('Columna materiaId ya existe');
+      }
+    }
+
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN cursoId VARCHAR(10) NULL`);
+      console.log('Columna cursoId agregada');
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.log('Columna cursoId ya existe');
+      }
+    }
+
+    // Crear admin por defecto si no hay usuarios
+    const [users] = await pool.query('SELECT * FROM users');
+    if (users.length === 0) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      await pool.query(
+        'INSERT INTO users (id, nombre, email, password, role, validated) VALUES (?, ?, ?, ?, ?, ?)',
+        [crypto.randomUUID(), 'Administrador', 'admin@gestor.com', hashedPassword, 'admin', true]
+      );
+      console.log('Usuario admin creado: admin@gestor.com / admin123');
+    } else {
+      console.log('Usuarios detectados en la DB.');
+    }
+  } catch (err) {
+    console.error('Error al inicializar la base de datos:', err);
   }
 }
 

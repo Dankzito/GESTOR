@@ -76,27 +76,40 @@ app.get('/register', async (req, res) => {
 });
 
 app.post('/register', async (req, res) => {
-  const { nombre, email, password, role } = req.body;
+  const { nombre, email, password, role, dni } = req.body;
   const selectedRole = role || 'alumno';
-  
+
   const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
   if (existing.length) {
     return res.render('register', { error: 'Email ya registrado' });
   }
-  
+
   const hashed = await bcrypt.hash(password, 10);
   const id = crypto.randomUUID();
 
   // Todos los usuarios no validados por defecto - el admin debe validarlos
   const validated = false;
 
-  // Insertar usuario no validado
+  // Insertar usuario no validado con DNI
   try {
-    await pool.query('INSERT INTO users (id,nombre,email,password,role,validated) VALUES (?,?,?,?,?,?)',
-      [id, nombre, email, hashed, selectedRole, validated]);
+    // Intentar insertar con DNI
+    await pool.query('INSERT INTO users (id,nombre,email,password,role,validated,dni) VALUES (?,?,?,?,?,?,?)',
+      [id, nombre, email, hashed, selectedRole, validated, dni || null]);
   } catch (err) {
-    console.error('Error al registrar usuario:', err);
-    return res.render('register', { error: 'Error al crear la cuenta. Por favor intenta nuevamente.' });
+    // Si la columna dni no existe, agregarla y reintentar
+    if (err.code === 'ER_BAD_FIELD_ERROR') {
+      try {
+        await pool.query('ALTER TABLE users ADD COLUMN dni VARCHAR(50) NULL');
+        await pool.query('INSERT INTO users (id,nombre,email,password,role,validated,dni) VALUES (?,?,?,?,?,?,?)',
+          [id, nombre, email, hashed, selectedRole, validated, dni || null]);
+      } catch (alterErr) {
+        console.error('Error al agregar columna dni:', alterErr);
+        return res.render('register', { error: 'Error al crear la cuenta. Por favor intenta nuevamente.' });
+      }
+    } else {
+      console.error('Error al registrar usuario:', err);
+      return res.render('register', { error: 'Error al crear la cuenta. Por favor intenta nuevamente.' });
+    }
   }
 
   // Auto login after register - pero mostrará mensaje de validación pendiente
@@ -135,7 +148,7 @@ app.get('/admin', ensureAuthenticated, ensureRole('admin'), async (req, res) => 
     // Obtener materias para los selectores
     const [materias] = await pool.query('SELECT * FROM materias ORDER BY nombre ASC').catch(() => [[]]);
 
-    res.render('admin', { 
+    res.render('admin', {
       users: users,
       materias: materias || []
     });
@@ -155,8 +168,38 @@ app.post('/admin/users/:id/validate', ensureAuthenticated, ensureRole('admin'), 
   const userId = req.params.id;
 
   try {
+    // Obtener información del usuario
+    const [userRows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+    if (userRows.length === 0) {
+      return res.redirect('/admin');
+    }
+
+    const user = userRows[0];
+
     // Validar usuario
     await pool.query('UPDATE users SET validated = TRUE WHERE id = ?', [userId]);
+
+    // Si es alumno, sincronizar con tabla estudiantes
+    if (user.role === 'alumno') {
+      try {
+        // Verificar si ya existe en estudiantes
+        const [existingStudent] = await pool.query('SELECT id FROM estudiantes WHERE id = ?', [userId]);
+
+        if (existingStudent.length === 0) {
+          // Insertar en estudiantes
+          await pool.query('INSERT INTO estudiantes (id, nombre, dni) VALUES (?, ?, ?)',
+            [userId, user.nombre, user.dni || null]);
+        } else {
+          // Actualizar datos en estudiantes
+          await pool.query('UPDATE estudiantes SET nombre = ?, dni = ? WHERE id = ?',
+            [user.nombre, user.dni || null, userId]);
+        }
+      } catch (studentErr) {
+        console.error('Error al sincronizar estudiante:', studentErr);
+        // No fallar la validación si hay error en la sincronización
+      }
+    }
+
     res.redirect('/admin');
   } catch (err) {
     console.error('Error al validar usuario:', err);
@@ -204,20 +247,20 @@ app.post('/admin/users/:id/assign-materia', ensureAuthenticated, ensureRole('adm
         throw err;
       }
     }
-    
+
     // También actualizar o crear registro en tabla profesores
     const [user] = await pool.query('SELECT nombre FROM users WHERE id = ?', [userId]);
     if (user.length > 0 && materiaId) {
       const [materia] = await pool.query('SELECT nombre FROM materias WHERE id = ?', [materiaId]).catch(() => [[]]);
       const materiaNombre = materia.length > 0 ? materia[0].nombre : null;
-      
+
       if (materiaNombre) {
         // Buscar si existe registro en profesores por nombre o por userId
         const [profesor] = await pool.query('SELECT id FROM profesores WHERE nombre = ? OR id = ?', [user[0].nombre, userId]);
         if (profesor.length > 0) {
           await pool.query('UPDATE profesores SET materia = ? WHERE id = ?', [materiaNombre, profesor[0].id]);
         } else {
-          await pool.query('INSERT INTO profesores (id, nombre, materia) VALUES (?, ?, ?)', 
+          await pool.query('INSERT INTO profesores (id, nombre, materia) VALUES (?, ?, ?)',
             [userId, user[0].nombre, materiaNombre]);
         }
       }
@@ -228,7 +271,7 @@ app.post('/admin/users/:id/assign-materia', ensureAuthenticated, ensureRole('adm
         await pool.query('UPDATE profesores SET materia = NULL WHERE id = ?', [profesor[0].id]);
       }
     }
-    
+
     res.redirect('/admin');
   } catch (err) {
     console.error('Error al asignar materia:', err);
@@ -321,22 +364,22 @@ app.get('/estudiantes', ensureAuthenticated, async (req, res) => {
   try {
     const user = req.session.user;
     let estudiantes = [];
-    
+
     if (user.role === 'profesor') {
       // Profesores solo ven estudiantes del mismo año que sus materias
       try {
         // Obtener la materia del profesor desde users.materiaId
         const [userData] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [user.id, 'profesor']);
-        
+
         if (userData.length > 0 && userData[0].materiaId) {
           // Obtener el año de la materia
           let [materiaData] = await pool.query('SELECT ano, descripcion FROM materias WHERE id = ?', [userData[0].materiaId]).catch(() => {
             return pool.query('SELECT descripcion as ano FROM materias WHERE id = ?', [userData[0].materiaId]);
           });
-          
+
           if (materiaData.length > 0) {
             const anoMateria = materiaData[0].ano || materiaData[0].descripcion;
-            
+
             if (anoMateria) {
               // Buscar estudiantes del mismo año
               const [estudiantesResult] = await pool.query(`
@@ -369,7 +412,7 @@ app.get('/estudiantes', ensureAuthenticated, async (req, res) => {
       `);
       estudiantes = estudiantesResult;
     }
-    
+
     res.render('estudiantes', { estudiantes: estudiantes || [] });
   } catch (err) {
     console.error('Error al obtener estudiantes:', err);
@@ -408,15 +451,15 @@ app.get('/materias', ensureAuthenticated, ensureRole('admin'), async (req, res) 
 
 app.post('/materias', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
   const { nombre, ano } = req.body;
-  
+
   // Intentar usar la columna 'ano', si no existe usar 'descripcion' como fallback
   try {
-    await pool.query('INSERT INTO materias (id, nombre, ano) VALUES (?, ?, ?)', 
+    await pool.query('INSERT INTO materias (id, nombre, ano) VALUES (?, ?, ?)',
       [nanoid(), nombre, ano || null]);
   } catch (err) {
     if (err.code === 'ER_BAD_FIELD_ERROR') {
       // Si la columna ano no existe, usar descripcion
-      await pool.query('INSERT INTO materias (id, nombre, descripcion) VALUES (?, ?, ?)', 
+      await pool.query('INSERT INTO materias (id, nombre, descripcion) VALUES (?, ?, ?)',
         [nanoid(), nombre, ano || null]);
     } else {
       throw err;
@@ -427,15 +470,15 @@ app.post('/materias', ensureAuthenticated, ensureRole('admin'), async (req, res)
 
 app.post('/materias/:id/edit', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
   const { nombre, ano } = req.body;
-  
+
   // Intentar usar la columna 'ano', si no existe usar 'descripcion' como fallback
   try {
-    await pool.query('UPDATE materias SET nombre = ?, ano = ? WHERE id = ?', 
+    await pool.query('UPDATE materias SET nombre = ?, ano = ? WHERE id = ?',
       [nombre, ano || null, req.params.id]);
   } catch (err) {
     if (err.code === 'ER_BAD_FIELD_ERROR') {
       // Si la columna ano no existe, usar descripcion
-      await pool.query('UPDATE materias SET nombre = ?, descripcion = ? WHERE id = ?', 
+      await pool.query('UPDATE materias SET nombre = ?, descripcion = ? WHERE id = ?',
         [nombre, ano || null, req.params.id]);
     } else {
       throw err;
@@ -449,36 +492,6 @@ app.post('/materias/:id/delete', ensureAuthenticated, ensureRole('admin'), async
   res.redirect('/materias');
 });
 
-/* ---------- PROFESORES ---------- */
-app.get('/profesores', ensureAuthenticated, async (req, res) => {
-  try {
-    // Mostrar solo usuarios registrados con rol profesor
-    const [profesores] = await pool.query(`
-      SELECT u.id, u.nombre, u.email, u.validated, m.nombre as materia_nombre, u.created_at
-      FROM users u
-      LEFT JOIN materias m ON u.materiaId = m.id
-      WHERE u.role = 'profesor'
-      ORDER BY u.nombre ASC
-    `);
-    res.render('profesores', { profesores: profesores || [] });
-  } catch (err) {
-    console.error('Error al obtener profesores:', err);
-    // Si la columna materiaId no existe, hacer consulta simple
-    try {
-      const [profesores] = await pool.query(`
-        SELECT id, nombre, email, validated, created_at
-        FROM users
-        WHERE role = 'profesor'
-        ORDER BY nombre ASC
-      `);
-      res.render('profesores', { profesores: profesores || [] });
-    } catch (err2) {
-      res.status(500).send('Error al cargar profesores: ' + err2.message);
-    }
-  }
-});
-
-/* ---------- CALIFICACIONES ---------- */
 app.get('/calificaciones', ensureAuthenticated, async (req, res) => {
   try {
     const user = req.session.user;
@@ -502,16 +515,16 @@ app.get('/calificaciones', ensureAuthenticated, async (req, res) => {
       try {
         // Obtener la materia del profesor desde users.materiaId
         const [userData] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [user.id, 'profesor']);
-        
+
         if (userData.length > 0 && userData[0].materiaId) {
           // Obtener el año de la materia
           let [materiaData] = await pool.query('SELECT ano, descripcion FROM materias WHERE id = ?', [userData[0].materiaId]).catch(() => {
             return pool.query('SELECT descripcion as ano FROM materias WHERE id = ?', [userData[0].materiaId]);
           });
-          
+
           if (materiaData.length > 0) {
             const anoMateria = materiaData[0].ano || materiaData[0].descripcion;
-            
+
             if (anoMateria) {
               // Obtener calificaciones de estudiantes del mismo año
               const [calificacionesResult] = await pool.query(`
@@ -592,28 +605,28 @@ app.get('/calificaciones', ensureAuthenticated, async (req, res) => {
 app.post('/calificaciones', ensureAuthenticated, ensureValidated, ensureRole('profesor'), async (req, res) => {
   const { alumnoId, nota, comentario, profesorId } = req.body;
   const user = req.session.user;
-  
+
   // Verificar que el alumnoId corresponde a un usuario con rol alumno validado
   const [alumno] = await pool.query('SELECT id, cursoId FROM users WHERE id = ? AND role = ? AND validated = TRUE', [alumnoId, 'alumno']);
   if (alumno.length === 0) {
     return res.status(400).send('Estudiante no válido o no validado');
   }
-  
+
   // Si es profesor, verificar que el alumno esté en el mismo año que su materia
   if (user.role === 'profesor') {
     try {
       // Obtener la materia del profesor
       const [userData] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [user.id, 'profesor']);
-      
+
       if (userData.length > 0 && userData[0].materiaId) {
         // Obtener el año de la materia
         let [materiaData] = await pool.query('SELECT ano, descripcion FROM materias WHERE id = ?', [userData[0].materiaId]).catch(() => {
           return pool.query('SELECT descripcion as ano FROM materias WHERE id = ?', [userData[0].materiaId]);
         });
-        
+
         if (materiaData.length > 0) {
           const anoMateria = materiaData[0].ano || materiaData[0].descripcion;
-          
+
           // Verificar que el alumno esté en el mismo año
           if (!anoMateria || !alumno[0].cursoId || alumno[0].cursoId !== anoMateria) {
             return res.status(403).send('No puedes calificar a este estudiante. Debe estar en el año ' + anoMateria + ' donde tienes una materia asignada.');
@@ -629,60 +642,57 @@ app.post('/calificaciones', ensureAuthenticated, ensureValidated, ensureRole('pr
       return res.status(403).send('No puedes calificar a este estudiante. Error al verificar tus materias asignadas.');
     }
   }
-  
+
+  // Determinar profesorId y materia
   let finalProfesorId = profesorId;
   let materia = '';
-  
+
   if (user.role === 'profesor') {
-    // Para profesores, usar su propio ID o buscar en la tabla profesores
+    // Para profesores, usar su propio ID directamente
     finalProfesorId = user.id;
-    
-    // Buscar materia del profesor desde users o profesores
-    const [userMateria] = await pool.query('SELECT materiaId FROM users WHERE id = ?', [user.id]);
-    if (userMateria.length > 0 && userMateria[0].materiaId) {
-      const [materiaRow] = await pool.query('SELECT nombre FROM materias WHERE id = ?', [userMateria[0].materiaId]);
-      materia = materiaRow.length > 0 ? materiaRow[0].nombre : '';
-    }
-    
-    // También buscar en tabla profesores como fallback
-    if (!materia) {
-      const [pRows] = await pool.query('SELECT materia FROM profesores WHERE nombre = ? OR id = ?', [user.nombre, user.id]);
-      if (pRows.length > 0) {
-        materia = pRows[0].materia || '';
+
+    // Buscar materia del profesor desde users
+    try {
+      const [userMateria] = await pool.query('SELECT materiaId FROM users WHERE id = ?', [user.id]);
+      if (userMateria.length > 0 && userMateria[0].materiaId) {
+        const [materiaRow] = await pool.query('SELECT nombre FROM materias WHERE id = ?', [userMateria[0].materiaId]);
+        materia = materiaRow.length > 0 ? materiaRow[0].nombre : '';
       }
+    } catch (err) {
+      console.error('Error al obtener materia:', err);
     }
-    
-    // Crear o actualizar registro en profesores si no existe
-    const [profesorExists] = await pool.query('SELECT id FROM profesores WHERE id = ? OR nombre = ?', [user.id, user.nombre]);
-    if (profesorExists.length === 0) {
-      await pool.query('INSERT INTO profesores (id, nombre, materia) VALUES (?, ?, ?)', 
-        [user.id, user.nombre, materia]);
-    } else {
-      await pool.query('UPDATE profesores SET materia = ? WHERE id = ?', [materia, profesorExists[0].id]);
-    }
-    finalProfesorId = profesorExists.length > 0 ? profesorExists[0].id : user.id;
-    
   } else if (user.role === 'admin' && profesorId) {
     // Para admin, usar el profesorId proporcionado
-    const [pRows] = await pool.query('SELECT materia FROM profesores WHERE id = ?', [profesorId]);
-    if (pRows.length > 0) {
-      materia = pRows[0].materia || '';
-    } else {
-      return res.status(400).send('El profesor seleccionado no existe.');
+    finalProfesorId = profesorId;
+    try {
+      const [userMateria] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [profesorId, 'profesor']);
+      if (userMateria.length > 0 && userMateria[0].materiaId) {
+        const [materiaRow] = await pool.query('SELECT nombre FROM materias WHERE id = ?', [userMateria[0].materiaId]);
+        materia = materiaRow.length > 0 ? materiaRow[0].nombre : '';
+      }
+    } catch (err) {
+      console.error('Error al obtener materia del profesor:', err);
     }
   } else if (user.role === 'admin' && !profesorId) {
     return res.status(400).send('Debe seleccionar un profesor');
   }
 
-  await pool.query('INSERT INTO calificaciones (id,alumnoId,nota,comentario,fecha,profesorId,materia) VALUES (?,?,?,?,?,?,?)',
-    [nanoid(), alumnoId, Number(nota), comentario, new Date(), finalProfesorId, materia]);
-  res.redirect('/calificaciones');
+  try {
+    await pool.query('INSERT INTO calificaciones (id,alumnoId,nota,comentario,fecha,profesorId,materia) VALUES (?,?,?,?,?,?,?)',
+      [crypto.randomUUID(), alumnoId, Number(nota), comentario, new Date(), finalProfesorId, materia]);
+    res.redirect('/calificaciones');
+  } catch (err) {
+    console.error('Error al registrar calificación:', err);
+    res.status(500).send('Error al registrar calificación: ' + err.message);
+  }
 });
+
 app.post('/calificaciones/:id/edit', ensureAuthenticated, ensureValidated, ensureRole('profesor'), async (req, res) => {
   const { nota, comentario } = req.body;
   await pool.query('UPDATE calificaciones SET nota = ?, comentario = ? WHERE id = ?', [Number(nota), comentario, req.params.id]);
   res.redirect('/calificaciones');
 });
+
 app.post('/calificaciones/:id/delete', ensureAuthenticated, ensureRole('admin'), async (req, res) => {
   await pool.query('DELETE FROM calificaciones WHERE id = ?', [req.params.id]);
   res.redirect('/calificaciones');
@@ -710,16 +720,16 @@ app.get('/asistencias', ensureAuthenticated, async (req, res) => {
       try {
         // Obtener la materia del profesor desde users.materiaId
         const [userData] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [user.id, 'profesor']);
-        
+
         if (userData.length > 0 && userData[0].materiaId) {
           // Obtener el año de la materia
           let [materiaData] = await pool.query('SELECT ano, descripcion FROM materias WHERE id = ?', [userData[0].materiaId]).catch(() => {
             return pool.query('SELECT descripcion as ano FROM materias WHERE id = ?', [userData[0].materiaId]);
           });
-          
+
           if (materiaData.length > 0) {
             const anoMateria = materiaData[0].ano || materiaData[0].descripcion;
-            
+
             if (anoMateria) {
               // Obtener asistencias de estudiantes del mismo año
               const [asistenciasResult] = await pool.query(`
@@ -730,7 +740,7 @@ app.get('/asistencias', ensureAuthenticated, async (req, res) => {
                 ORDER BY a.fecha DESC
               `, [anoMateria]);
               asistencias = asistenciasResult || [];
-              
+
               // Obtener estudiantes del mismo año
               const [estudiantesResult] = await pool.query(`
                 SELECT id, nombre, email 
@@ -766,7 +776,7 @@ app.get('/asistencias', ensureAuthenticated, async (req, res) => {
         ORDER BY a.fecha DESC
       `);
       asistencias = asistenciasResult;
-      
+
       // Obtener estudiantes (usuarios con rol alumno)
       const [estudiantesResult] = await pool.query(`
         SELECT id, nombre, email 
@@ -786,28 +796,28 @@ app.get('/asistencias', ensureAuthenticated, async (req, res) => {
 app.post('/asistencias', ensureAuthenticated, ensureValidated, ensureRole('profesor'), async (req, res) => {
   const { alumnoId, estado } = req.body;
   const user = req.session.user;
-  
+
   // Verificar que el alumnoId corresponde a un usuario con rol alumno validado
   const [alumno] = await pool.query('SELECT id, cursoId FROM users WHERE id = ? AND role = ? AND validated = TRUE', [alumnoId, 'alumno']);
   if (alumno.length === 0) {
     return res.status(400).send('Estudiante no válido o no validado');
   }
-  
+
   // Si es profesor, verificar que el alumno esté en el mismo año que su materia
   if (user.role === 'profesor') {
     try {
       // Obtener la materia del profesor
       const [userData] = await pool.query('SELECT materiaId FROM users WHERE id = ? AND role = ?', [user.id, 'profesor']);
-      
+
       if (userData.length > 0 && userData[0].materiaId) {
         // Obtener el año de la materia
         let [materiaData] = await pool.query('SELECT ano, descripcion FROM materias WHERE id = ?', [userData[0].materiaId]).catch(() => {
           return pool.query('SELECT descripcion as ano FROM materias WHERE id = ?', [userData[0].materiaId]);
         });
-        
+
         if (materiaData.length > 0) {
           const anoMateria = materiaData[0].ano || materiaData[0].descripcion;
-          
+
           // Verificar que el alumno esté en el mismo año
           if (!anoMateria || !alumno[0].cursoId || alumno[0].cursoId !== anoMateria) {
             return res.status(403).send('No puedes registrar asistencia de este estudiante. Debe estar en el año ' + anoMateria + ' donde tienes una materia asignada.');
@@ -823,9 +833,15 @@ app.post('/asistencias', ensureAuthenticated, ensureValidated, ensureRole('profe
       return res.status(403).send('No puedes registrar asistencia de este estudiante. Error al verificar tus materias asignadas.');
     }
   }
-  
-  await pool.query('INSERT INTO asistencias (id,alumnoId,estado,fecha) VALUES (?,?,?,?)', [nanoid(), alumnoId, estado, new Date()]);
-  res.redirect('/asistencias');
+
+  try {
+    await pool.query('INSERT INTO asistencias (id,alumnoId,estado,fecha) VALUES (?,?,?,?)',
+      [crypto.randomUUID(), alumnoId, estado, new Date()]);
+    res.redirect('/asistencias');
+  } catch (err) {
+    console.error('Error al registrar asistencia:', err);
+    res.status(500).send('Error al registrar asistencia: ' + err.message);
+  }
 });
 
 /* ---------- HISTORIAL ESTUDIANTE ---------- */
