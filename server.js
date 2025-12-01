@@ -383,7 +383,7 @@ app.get('/estudiantes', ensureAuthenticated, async (req, res) => {
             if (anoMateria) {
               // Buscar estudiantes del mismo año
               const [estudiantesResult] = await pool.query(`
-                SELECT u.id, u.nombre, u.email, u.validated, u.cursoId as curso_nombre, u.created_at
+                SELECT u.id, u.nombre, u.email, u.dni, u.validated, u.cursoId as curso_nombre, u.created_at
                 FROM users u
                 WHERE u.role = 'alumno' AND u.validated = TRUE AND u.cursoId = ?
                 ORDER BY u.nombre ASC
@@ -405,7 +405,7 @@ app.get('/estudiantes', ensureAuthenticated, async (req, res) => {
     } else {
       // Admin ve todos los estudiantes
       const [estudiantesResult] = await pool.query(`
-        SELECT u.id, u.nombre, u.email, u.validated, u.cursoId as curso_nombre, u.created_at
+        SELECT u.id, u.nombre, u.email, u.dni, u.validated, u.cursoId as curso_nombre, u.created_at
         FROM users u
         WHERE u.role = 'alumno'
         ORDER BY u.nombre ASC
@@ -492,6 +492,36 @@ app.post('/materias/:id/delete', ensureAuthenticated, ensureRole('admin'), async
   res.redirect('/materias');
 });
 
+/* ---------- PROFESORES ---------- */
+app.get('/profesores', ensureAuthenticated, async (req, res) => {
+  try {
+    // Mostrar solo usuarios registrados con rol profesor
+    const [profesores] = await pool.query(`
+      SELECT u.id, u.nombre, u.email, u.dni, u.validated, m.nombre as materia_nombre, u.created_at
+      FROM users u
+      LEFT JOIN materias m ON u.materiaId = m.id
+      WHERE u.role = 'profesor'
+      ORDER BY u.nombre ASC
+    `);
+    res.render('profesores', { profesores: profesores || [] });
+  } catch (err) {
+    console.error('Error al obtener profesores:', err);
+    // Si la columna materiaId o dni no existe, hacer consulta simple
+    try {
+      const [profesores] = await pool.query(`
+        SELECT id, nombre, email, validated, created_at
+        FROM users
+        WHERE role = 'profesor'
+        ORDER BY nombre ASC
+      `);
+      res.render('profesores', { profesores: profesores || [] });
+    } catch (err2) {
+      res.status(500).send('Error al cargar profesores: ' + err2.message);
+    }
+  }
+});
+
+/* ---------- CALIFICACIONES ---------- */
 app.get('/calificaciones', ensureAuthenticated, async (req, res) => {
   try {
     const user = req.session.user;
